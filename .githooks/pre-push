@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+LC_ALL=C
+
+local_branch="$(git rev-parse --abbrev-ref HEAD)"
+
+# Pattern: [name]/[checkpointNumber]-[stepInOurWorkflow][optional numeric suffix]
+# Examples: jpw/2.1-micro, JPW123/2-consolidated, john-doe-42/3.2-merged1
+valid_branch_regex="^[a-zA-Z0-9-]+/[0-9]+(\.[0-9]+)?-(micro|consolidated|merged)[0-9]*$"
+
+message="Branch name '$local_branch' violates naming convention.
+Required format: [name]/[checkpointNumber]-[stepInOurWorkflow][optional numeric suffix]
+
+Examples: 
+  - jpw/2.1-micro
+  - JPW123/2-consolidated
+  - john-doe-42/3.2-merged
+  - Sarah2024/1.5-merged2
+
+Rules:
+  - Name can contain letters (upper/lowercase), numbers, and hyphens
+  - Checkpoint can be single digit (2) or decimal (2.1)
+  - Allowed workflow steps: micro, consolidated, merged
+  - Optional numeric suffix at the end"
+
+# Allow main/master/develop branches to skip validation
+if [[ $local_branch == "main" || $local_branch == "master" || $local_branch == "develop" ]]
+then
+    exit 0
+fi
+
+if [[ ! $local_branch =~ $valid_branch_regex ]]
+then
+    echo "$message"
+    exit 1
+fi
+
+exit 0
