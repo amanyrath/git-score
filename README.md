@@ -2,6 +2,16 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Initial Setup
+
+After cloning the repository, configure git to use the custom hooks:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+### Running the Development Server
+
 First, run the development server:
 
 ```bash
