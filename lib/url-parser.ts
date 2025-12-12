@@ -64,13 +64,14 @@ export function parseGitHubUrl(input: string): ParsedRepoUrl | null {
     return null;
   }
 
-  // GitHub username/repo name validation
-  // - Must be alphanumeric with hyphens
-  // - Cannot start or end with hyphen
-  // - Cannot have consecutive hyphens (for usernames)
-  const validNameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$|^[a-zA-Z0-9]$/;
+  // GitHub username validation (alphanumeric and hyphens, no consecutive hyphens)
+  const validUsernameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$|^[a-zA-Z0-9]$/;
 
-  if (!validNameRegex.test(owner) || !validNameRegex.test(repo)) {
+  // GitHub repo name validation (alphanumeric, hyphens, underscores, and periods)
+  // More permissive as repo names can contain ., _, and -
+  const validRepoRegex = /^[a-zA-Z0-9._-]+$/;
+
+  if (!validUsernameRegex.test(owner) || !validRepoRegex.test(repo)) {
     return null;
   }
 
