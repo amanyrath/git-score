@@ -6,12 +6,13 @@ import { RepoInfo } from '@/components/RepoInfo';
 import { ContributorCard } from '@/components/ContributorCard';
 import { ScoreCard } from '@/components/ScoreCard';
 import { AntiPatternsList } from '@/components/AntiPatternsList';
+import { AIInsightsList } from '@/components/AIInsightsList';
 import { parseGitHubUrl } from '@/lib/url-parser';
-import { ScoredAnalysisResult, GitHubError } from '@/types';
+import { AIEnhancedAnalysisResult, GitHubError } from '@/types';
 
 export default function Home(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<ScoredAnalysisResult | null>(null);
+  const [result, setResult] = useState<AIEnhancedAnalysisResult | null>(null);
   const [error, setError] = useState<GitHubError | null>(null);
 
   const handleAnalyze = async (url: string): Promise<void> => {
@@ -47,7 +48,7 @@ export default function Home(): React.ReactElement {
         return;
       }
 
-      setResult(data as ScoredAnalysisResult);
+      setResult(data as AIEnhancedAnalysisResult);
     } catch {
       setError({
         type: 'NETWORK_ERROR',
@@ -57,6 +58,9 @@ export default function Home(): React.ReactElement {
       setIsLoading(false);
     }
   };
+
+  // Use AI score if available, otherwise fall back to heuristic score
+  const displayScore = result?.aiRepositoryScore ?? result?.repositoryScore ?? 0;
 
   return (
     <main className="min-h-screen p-8">
@@ -74,6 +78,7 @@ export default function Home(): React.ReactElement {
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
             <p className="mt-4 text-gray-600">Analyzing repository...</p>
+            <p className="text-sm text-gray-500 mt-1">This may take a moment with AI analysis enabled</p>
           </div>
         )}
 
@@ -91,12 +96,32 @@ export default function Home(): React.ReactElement {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div className="flex-1">
                   <RepoInfo repository={result.repository} totalCommits={result.totalCommits} />
+                  {result.aiAnalysisEnabled && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        AI Analysis Enabled
+                      </span>
+                      {result.tokenUsage && (
+                        <span className="text-xs text-gray-500">
+                          {result.tokenUsage.totalTokens.toLocaleString()} tokens used
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-center">
-                  <ScoreCard score={result.repositoryScore} label="Overall Score" size="large" />
+                <div className="flex justify-center flex-col items-center">
+                  <ScoreCard score={displayScore} label={result.aiRepositoryScore ? "AI Score" : "Overall Score"} size="large" />
+                  {result.aiRepositoryScore && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Heuristic: {result.repositoryScore}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
+
+            {/* AI Insights Section */}
+            <AIInsightsList insights={result.aiInsights} aiEnabled={result.aiAnalysisEnabled} />
 
             {/* Contributors Section */}
             <div>

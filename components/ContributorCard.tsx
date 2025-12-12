@@ -1,9 +1,9 @@
 'use client';
 
-import { ScoredContributor, ContributorCategory } from '@/types';
+import { AIEnhancedContributor, ContributorCategory, CommitIntent } from '@/types';
 
 interface ContributorCardProps {
-  contributor: ScoredContributor;
+  contributor: AIEnhancedContributor;
 }
 
 function getCategoryColor(category: ContributorCategory): string {
@@ -29,8 +29,30 @@ function getScoreBgColor(score: number): string {
   return 'bg-red-100 ring-red-500';
 }
 
+function getIntentColor(intent: CommitIntent): string {
+  const colors: Record<CommitIntent, string> = {
+    feature: 'bg-purple-100 text-purple-800',
+    bugfix: 'bg-red-100 text-red-800',
+    refactor: 'bg-blue-100 text-blue-800',
+    docs: 'bg-green-100 text-green-800',
+    test: 'bg-yellow-100 text-yellow-800',
+    style: 'bg-pink-100 text-pink-800',
+    chore: 'bg-gray-100 text-gray-800',
+    performance: 'bg-orange-100 text-orange-800',
+    security: 'bg-red-100 text-red-800',
+  };
+  return colors[intent] || 'bg-gray-100 text-gray-800';
+}
+
+function formatIntent(intent: CommitIntent): string {
+  return intent.charAt(0).toUpperCase() + intent.slice(1);
+}
+
 export function ContributorCard({ contributor }: ContributorCardProps): React.ReactElement {
-  const { name, email, avatarUrl, stats, score } = contributor;
+  const { name, email, avatarUrl, stats, score, aiAverageScore, dominantIntent } = contributor;
+
+  // Use AI score if available, otherwise fall back to heuristic score
+  const displayScore = aiAverageScore ?? score.averageScore;
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -59,17 +81,27 @@ export function ContributorCard({ contributor }: ContributorCardProps): React.Re
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-gray-900 truncate">{name}</h3>
           <p className="text-sm text-gray-500 truncate">{email}</p>
-          <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${getCategoryColor(score.category)}`}>
-            {score.category}
-          </span>
+          <div className="flex flex-wrap gap-1 mt-1">
+            <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getCategoryColor(score.category)}`}>
+              {score.category}
+            </span>
+            {dominantIntent && (
+              <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${getIntentColor(dominantIntent)}`}>
+                {formatIntent(dominantIntent)}
+              </span>
+            )}
+          </div>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
-          <div className={`w-12 h-12 rounded-full ${getScoreBgColor(score.averageScore)} ring-2 flex items-center justify-center`}>
-            <span className={`text-lg font-bold ${getScoreColor(score.averageScore)}`}>
-              {score.averageScore}
+          <div className={`w-12 h-12 rounded-full ${getScoreBgColor(displayScore)} ring-2 flex items-center justify-center`}>
+            <span className={`text-lg font-bold ${getScoreColor(displayScore)}`}>
+              {displayScore}
             </span>
           </div>
           <p className="text-xs text-gray-500">{stats.totalCommits} commits</p>
+          {aiAverageScore !== undefined && (
+            <p className="text-xs text-purple-600">AI Score</p>
+          )}
         </div>
       </div>
 

@@ -174,3 +174,79 @@ export interface ScoredAnalysisResult extends AnalysisResult {
   repositoryScore: number; // Average of all commit scores
   insights: RepositoryInsights;
 }
+
+// ============================================
+// Checkpoint 3: AI-Powered Semantic Analysis
+// ============================================
+
+// Commit intent types
+export type CommitIntent =
+  | 'feature'
+  | 'bugfix'
+  | 'refactor'
+  | 'docs'
+  | 'test'
+  | 'style'
+  | 'chore'
+  | 'performance'
+  | 'security';
+
+// Semantic analysis from AI
+export interface SemanticAnalysis {
+  intent: CommitIntent;
+  clarityScore: number; // 0-100
+  completenessScore: number; // 0-100
+  technicalQualityScore: number; // 0-100
+  summary: string; // Brief AI-generated summary
+}
+
+// Enhanced commit score with AI analysis
+export interface EnhancedCommitScore {
+  sha: string;
+  heuristicScore: number; // From Checkpoint 2 (0-100)
+  clarityScore: number; // AI clarity (0-100)
+  completenessScore: number; // AI completeness (0-100)
+  sizeScore: number; // Size score (0-100)
+  technicalScore: number; // AI technical quality (0-100)
+  overallScore: number; // Weighted: 30% heuristic, 25% clarity, 20% completeness, 20% size, 5% technical
+  semanticAnalysis: SemanticAnalysis;
+}
+
+// AI-generated insight
+export type InsightSeverity = 'info' | 'warning' | 'critical';
+
+export interface AIInsight {
+  title: string;
+  description: string;
+  impact: string;
+  recommendation: string;
+  severity: InsightSeverity;
+}
+
+// Token usage tracking
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+// Extended commit with enhanced AI scoring
+export interface AIEnhancedCommit extends ScoredCommit {
+  enhancedScore?: EnhancedCommitScore;
+}
+
+// Extended contributor with enhanced scoring
+export interface AIEnhancedContributor extends ScoredContributor {
+  aiAverageScore?: number;
+  dominantIntent?: CommitIntent;
+}
+
+// Final analysis result with AI enhancements
+export interface AIEnhancedAnalysisResult extends ScoredAnalysisResult {
+  commits: AIEnhancedCommit[];
+  contributors: AIEnhancedContributor[];
+  aiInsights: AIInsight[];
+  aiRepositoryScore?: number; // AI-enhanced overall score
+  tokenUsage?: TokenUsage;
+  aiAnalysisEnabled: boolean;
+}
