@@ -1,19 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { RepoInput } from '@/components/RepoInput';
 import { RepoInfo } from '@/components/RepoInfo';
 import { ContributorCard } from '@/components/ContributorCard';
 import { ScoreCard } from '@/components/ScoreCard';
 import { AntiPatternsList } from '@/components/AntiPatternsList';
 import { AIInsightsList } from '@/components/AIInsightsList';
+import { FilterPanel, FilterState, createDefaultFilters } from '@/components/FilterPanel';
+import { ExportPanel } from '@/components/ExportPanel';
+import { ContributorDetailModal } from '@/components/ContributorDetailModal';
+import { CommitDetailModal } from '@/components/CommitDetailModal';
+import {
+  ScoreDistributionChart,
+  CommitTimelineChart,
+  ContributorComparisonChart,
+} from '@/components/charts';
 import { parseGitHubUrl } from '@/lib/url-parser';
-import { AIEnhancedAnalysisResult, GitHubError } from '@/types';
+import { AIEnhancedAnalysisResult, AIEnhancedContributor, AIEnhancedCommit, GitHubError } from '@/types';
 
 export default function Home(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<AIEnhancedAnalysisResult | null>(null);
   const [error, setError] = useState<GitHubError | null>(null);
+  const [filters, setFilters] = useState<FilterState>(createDefaultFilters());
+  const [selectedContributor, setSelectedContributor] = useState<AIEnhancedContributor | null>(null);
+  const [selectedCommit, setSelectedCommit] = useState<AIEnhancedCommit | null>(null);
 
   const handleAnalyze = async (url: string): Promise<void> => {
     const parsed = parseGitHubUrl(url);
@@ -28,6 +40,7 @@ export default function Home(): React.ReactElement {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setFilters(createDefaultFilters());
 
     try {
       const response = await fetch('/api/analyze', {
@@ -59,12 +72,66 @@ export default function Home(): React.ReactElement {
     }
   };
 
+  // Filter commits based on current filters
+  const filteredCommits = useMemo(() => {
+    if (!result) return [];
+
+    return result.commits.filter((commit) => {
+      // Date range filter
+      if (filters.dateRange.start) {
+        const commitDate = new Date(commit.timestamp);
+        const startDate = new Date(filters.dateRange.start);
+        if (commitDate < startDate) return false;
+      }
+      if (filters.dateRange.end) {
+        const commitDate = new Date(commit.timestamp);
+        const endDate = new Date(filters.dateRange.end);
+        endDate.setHours(23, 59, 59, 999);
+        if (commitDate > endDate) return false;
+      }
+
+      // Contributor filter
+      if (filters.contributors.length > 0) {
+        if (!filters.contributors.includes(commit.author.email.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // Score range filter
+      const score = commit.enhancedScore?.overallScore ?? commit.score.overallScore;
+      if (score < filters.scoreRange.min || score > filters.scoreRange.max) {
+        return false;
+      }
+
+      // Commit type filter
+      if (filters.commitTypes.length > 0 && commit.enhancedScore) {
+        if (!filters.commitTypes.includes(commit.enhancedScore.semanticAnalysis.intent)) {
+          return false;
+        }
+      }
+
+      // Anti-pattern filter
+      if (filters.hideAntiPatterns) {
+        if (
+          commit.score.sizeScore.isGiantCommit ||
+          commit.score.sizeScore.isTinyCommit ||
+          commit.isMergeCommit ||
+          commit.message.toLowerCase().includes('wip')
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [result, filters]);
+
   // Use AI score if available, otherwise fall back to heuristic score
   const displayScore = result?.aiRepositoryScore ?? result?.repositoryScore ?? 0;
 
   return (
     <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <header className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">GitScore</h1>
           <p className="text-gray-600">Analyze GitHub repositories to evaluate Git commit practices</p>
@@ -90,7 +157,7 @@ export default function Home(): React.ReactElement {
         )}
 
         {result && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Repository Info with Score */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -120,8 +187,29 @@ export default function Home(): React.ReactElement {
               </div>
             </div>
 
-            {/* AI Insights Section */}
-            <AIInsightsList insights={result.aiInsights} aiEnabled={result.aiAnalysisEnabled} />
+            {/* Export Panel */}
+            <ExportPanel result={result} />
+
+            {/* Filter Panel */}
+            <FilterPanel
+              contributors={result.contributors}
+              filters={filters}
+              onFilterChange={setFilters}
+              totalCommits={result.totalCommits}
+              filteredCount={filteredCommits.length}
+            />
+
+            {/* Visualizations */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ScoreDistributionChart commits={filteredCommits} />
+              <CommitTimelineChart commits={filteredCommits} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ContributorComparisonChart contributors={result.contributors} />
+              {/* AI Insights Section */}
+              <AIInsightsList insights={result.aiInsights} aiEnabled={result.aiAnalysisEnabled} />
+            </div>
 
             {/* Contributors Section */}
             <div>
@@ -130,14 +218,72 @@ export default function Home(): React.ReactElement {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {result.contributors.map((contributor) => (
-                  <ContributorCard key={contributor.email} contributor={contributor} />
+                  <div
+                    key={contributor.email}
+                    onClick={() => setSelectedContributor(contributor)}
+                    className="cursor-pointer"
+                  >
+                    <ContributorCard contributor={contributor} />
+                  </div>
                 ))}
               </div>
             </div>
 
             {/* Anti-Patterns / Insights Section */}
             <AntiPatternsList insights={result.insights} />
+
+            {/* Recent Commits */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Recent Commits ({filteredCommits.length})
+              </h2>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {filteredCommits.slice(0, 20).map((commit) => {
+                  const score = commit.enhancedScore?.overallScore ?? commit.score.overallScore;
+                  return (
+                    <div
+                      key={commit.sha}
+                      onClick={() => setSelectedCommit(commit)}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${score >= 80 ? 'bg-green-100 text-green-600' : score >= 60 ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600'}`}>
+                        {score}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {commit.message.split('\n')[0]}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {commit.sha.slice(0, 7)} by {commit.author.name}
+                        </p>
+                      </div>
+                      {commit.enhancedScore?.semanticAnalysis.intent && (
+                        <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                          {commit.enhancedScore.semanticAnalysis.intent}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* Modals */}
+        {selectedContributor && result && (
+          <ContributorDetailModal
+            contributor={selectedContributor}
+            commits={result.commits}
+            onClose={() => setSelectedContributor(null)}
+          />
+        )}
+
+        {selectedCommit && (
+          <CommitDetailModal
+            commit={selectedCommit}
+            onClose={() => setSelectedCommit(null)}
+          />
         )}
       </div>
     </main>
