@@ -1,96 +1,92 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { GitHubClient } from '@/lib/github';
-import { analyzeRepository } from '@/lib/analysis';
+import { createGitHubClient } from '@/lib/github-client';
+import { analyzeRepository } from '@/lib/commit-analyzer';
+import { createAIAnalyzer } from '@/lib/openai-client';
+import { analyzeTemporalPatterns } from '@/lib/temporal-analysis';
+import { analyzeCollaboration } from '@/lib/collaboration-analysis';
+import { GitHubError, AIEnhancedAnalysisResult } from '@/types';
 
-// Request validation schema
-const analyzeRequestSchema = z.object({
-  url: z.string().min(1, 'URL is required'),
-  token: z.string().optional(),
-});
+interface AnalyzeRequest {
+  owner: string;
+  repo: string;
+}
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Parse and validate request body
-    const body = await request.json();
-    const { url, token } = analyzeRequestSchema.parse(body);
+    const body = (await request.json()) as AnalyzeRequest;
+    const { owner, repo } = body;
 
-    // Parse GitHub URL
-    const parsed = GitHubClient.parseURL(url);
-    if (!parsed) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid GitHub URL format' },
-        { status: 400 }
-      );
+    if (!owner || !repo) {
+      const error: GitHubError = {
+        type: 'UNKNOWN',
+        message: 'Owner and repo are required',
+      };
+      return NextResponse.json(error, { status: 400 });
     }
 
-    const { owner, repo } = parsed;
+    // Get GitHub token from environment variable (optional)
+    const githubToken = process.env.GITHUB_TOKEN;
+    const client = createGitHubClient(githubToken);
 
-    // Initialize GitHub client
-    const client = new GitHubClient({ auth: token });
+    // Fetch repository data from GitHub
+    const rawResult = await client.analyzeRepository(owner, repo);
 
-    // Validate repository accessibility
-    const isValid = await client.validateRepository(owner, repo);
-    if (!isValid) {
-      return NextResponse.json(
-        { success: false, error: 'Repository not found or not accessible' },
-        { status: 404 }
-      );
+    // Apply heuristic-based commit analysis scoring
+    const scoredResult = analyzeRepository(rawResult);
+
+    // Check if OpenAI API key is available for AI analysis
+    const openaiKey = process.env.OPENAI_API_KEY;
+
+    // Perform temporal and collaboration analysis
+    const temporalAnalysis = analyzeTemporalPatterns(scoredResult.commits);
+    const collaborationMetrics = analyzeCollaboration(scoredResult.commits, scoredResult.contributors);
+
+    if (openaiKey) {
+      try {
+        // Apply AI-powered semantic analysis
+        const aiAnalyzer = createAIAnalyzer(openaiKey, 'gpt-4o-mini');
+        const aiEnhancedResult = await aiAnalyzer.analyzeRepository(scoredResult);
+        return NextResponse.json({
+          ...aiEnhancedResult,
+          temporalAnalysis,
+          collaborationMetrics,
+        });
+      } catch (aiError) {
+        // If AI analysis fails, return heuristic results with aiAnalysisEnabled: false
+        console.error('AI analysis failed:', aiError);
+        const fallbackResult: AIEnhancedAnalysisResult = {
+          ...scoredResult,
+          aiInsights: [],
+          aiAnalysisEnabled: false,
+          temporalAnalysis,
+          collaborationMetrics,
+        };
+        return NextResponse.json(fallbackResult);
+      }
     }
 
-    // Fetch repository metadata
-    const repository = await client.getRepository(owner, repo);
-
-    // Fetch commits (limited to 100 for MVP)
-    const commits = await client.getCommits(owner, repo, {
-      branch: repository.defaultBranch,
-      limit: 100,
-    });
-
-    if (commits.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'No commits found in repository' },
-        { status: 400 }
-      );
-    }
-
-    // Analyze repository
-    const analysis = analyzeRepository(repository, commits);
-
-    return NextResponse.json({
-      success: true,
-      data: analysis,
-    });
+    // No OpenAI key - return heuristic results only
+    const resultWithoutAI: AIEnhancedAnalysisResult = {
+      ...scoredResult,
+      aiInsights: [],
+      aiAnalysisEnabled: false,
+      temporalAnalysis,
+      collaborationMetrics,
+    };
+    return NextResponse.json(resultWithoutAI);
   } catch (error) {
-    console.error('Analysis error:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: error.errors[0].message },
-        { status: 400 }
-      );
+    // Check if it's our GitHubError type
+    if (error && typeof error === 'object' && 'type' in error && 'message' in error) {
+      const githubError = error as GitHubError;
+      const status = githubError.status || 500;
+      return NextResponse.json(githubError, { status });
     }
 
-    // Handle GitHub API errors
-    if (error instanceof Error) {
-      if (error.message.includes('rate limit')) {
-        return NextResponse.json(
-          { success: false, error: 'GitHub API rate limit exceeded. Please try again later or provide a token.' },
-          { status: 429 }
-        );
-      }
-
-      if (error.message.includes('Not Found')) {
-        return NextResponse.json(
-          { success: false, error: 'Repository not found or is private' },
-          { status: 404 }
-        );
-      }
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    // Unknown error
+    const unknownError: GitHubError = {
+      type: 'UNKNOWN',
+      message: 'An unexpected error occurred',
+    };
+    return NextResponse.json(unknownError, { status: 500 });
   }
 }
