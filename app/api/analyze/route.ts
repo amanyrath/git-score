@@ -2,18 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GitHubClient } from '@/lib/github';
 import { analyzeRepository } from '@/lib/analysis';
+import { AIClient } from '@/lib/ai';
+import { detectAntiPatterns, calculateEnhancedScores } from '@/lib/analysis/scoring';
 
 // Request validation schema
 const analyzeRequestSchema = z.object({
   url: z.string().min(1, 'URL is required'),
   token: z.string().optional(),
+  enableAI: z.boolean().optional().default(false),
+  openaiKey: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
     const body = await request.json();
-    const { url, token } = analyzeRequestSchema.parse(body);
+    const { url, token, enableAI, openaiKey } = analyzeRequestSchema.parse(body);
 
     // Parse GitHub URL
     const parsed = GitHubClient.parseURL(url);
@@ -41,8 +45,85 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Analyze repository
+    // Analyze repository (heuristic analysis)
     const analysis = analyzeRepository(repository, commits);
+
+    // AI-enhanced analysis (optional)
+    if (enableAI) {
+      const aiApiKey = openaiKey || process.env.OPENAI_API_KEY;
+
+      if (!aiApiKey) {
+        return NextResponse.json(
+          { success: false, error: 'OpenAI API key required for AI analysis. Provide openaiKey or set OPENAI_API_KEY env var.' },
+          { status: 400 }
+        );
+      }
+
+      const aiClient = new AIClient({ apiKey: aiApiKey });
+
+      // Analyze commits semantically
+      const semanticScores = await aiClient.analyzeCommits(
+        commits.map((c) => ({ sha: c.sha, message: c.message, body: c.body }))
+      );
+
+      // Detect anti-patterns
+      const antiPatterns = detectAntiPatterns(commits);
+
+      // Calculate enhanced scores
+      const enhancedScores = calculateEnhancedScores(commits, semanticScores);
+
+      // Identify top issues for insight generation
+      const topIssues: string[] = [];
+      if (antiPatterns.giantCommits.length > 0) {
+        topIssues.push(`${antiPatterns.giantCommits.length} giant commits (>1000 lines)`);
+      }
+      if (antiPatterns.wipCommits.length > 0) {
+        topIssues.push(`${antiPatterns.wipCommits.length} WIP commits`);
+      }
+      if (analysis.categoryScores.messageQuality < 20) {
+        topIssues.push('Low message quality scores');
+      }
+      if (analysis.categoryScores.consistency < 15) {
+        topIssues.push('Inconsistent commit patterns');
+      }
+
+      // Generate AI insights
+      const insights = await aiClient.generateInsights({
+        repoName: repository.fullName,
+        totalCommits: commits.length,
+        averageScore: analysis.overallScore,
+        categoryScores: analysis.categoryScores,
+        antiPatterns: {
+          giantCommits: antiPatterns.giantCommits.length,
+          tinyCommits: antiPatterns.tinyCommits.length,
+          wipCommits: antiPatterns.wipCommits.length,
+          mergeCommits: antiPatterns.mergeCommits.length,
+        },
+        contributorCount: analysis.contributors.length,
+        topIssues,
+      });
+
+      // Convert Map to object for JSON serialization
+      const semanticScoresObj: Record<string, typeof semanticScores extends Map<string, infer V> ? V : never> = {};
+      for (const [key, value] of semanticScores) {
+        semanticScoresObj[key] = value;
+      }
+
+      // Add AI analysis to result
+      analysis.aiAnalysis = {
+        semanticScores: semanticScoresObj,
+        enhancedScores,
+        insights,
+        antiPatterns,
+        tokenUsage: aiClient.getTokenUsage(),
+      };
+
+      // Update overall score to use enhanced average if AI is enabled
+      if (enhancedScores.length > 0) {
+        const avgEnhanced = enhancedScores.reduce((sum, s) => sum + s.overall, 0) / enhancedScores.length;
+        analysis.overallScore = Math.round(avgEnhanced);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -71,6 +152,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { success: false, error: 'Repository not found or is private' },
           { status: 404 }
+        );
+      }
+
+      // Handle OpenAI errors
+      if (error.message.includes('OpenAI') || error.message.includes('API key')) {
+        return NextResponse.json(
+          { success: false, error: `AI Analysis error: ${error.message}` },
+          { status: 500 }
         );
       }
     }
