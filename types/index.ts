@@ -249,4 +249,109 @@ export interface AIEnhancedAnalysisResult extends ScoredAnalysisResult {
   aiRepositoryScore?: number; // AI-enhanced overall score
   tokenUsage?: TokenUsage;
   aiAnalysisEnabled: boolean;
+  temporalAnalysis?: TemporalAnalysis;
+  collaborationMetrics?: CollaborationMetrics;
+}
+
+// ============================================
+// Checkpoint 5: Advanced Features
+// ============================================
+
+// Temporal Pattern Analysis
+export interface HourlyDistribution {
+  hour: number; // 0-23
+  count: number;
+  averageScore: number;
+}
+
+export interface DailyDistribution {
+  day: number; // 0-6 (Sunday-Saturday)
+  dayName: string;
+  count: number;
+  averageScore: number;
+}
+
+export interface TemporalPattern {
+  isWeekendCommitter: boolean;
+  isNightOwl: boolean; // Commits frequently 10pm-6am
+  isEarlyBird: boolean; // Commits frequently 5am-9am
+  workingHoursRatio: number; // % of commits during 9am-5pm
+  mostActiveHour: number;
+  mostActiveDay: string;
+}
+
+export interface VelocityData {
+  week: string; // ISO week string
+  commitCount: number;
+  linesChanged: number;
+  averageScore: number;
+}
+
+export interface QualityTimeCorrelation {
+  hourlyCorrelation: number; // -1 to 1, correlation between hour and quality
+  dayCorrelation: number; // -1 to 1, correlation between day and quality
+  bestHours: number[]; // Hours with highest average quality
+  worstHours: number[]; // Hours with lowest average quality
+}
+
+export interface TemporalAnalysis {
+  hourlyDistribution: HourlyDistribution[];
+  dailyDistribution: DailyDistribution[];
+  patterns: TemporalPattern;
+  velocity: VelocityData[];
+  qualityTimeCorrelation: QualityTimeCorrelation;
+  heatmapData: number[][]; // 7x24 matrix (days x hours)
+  contributorPatterns: Map<string, TemporalPattern> | Record<string, TemporalPattern>;
+}
+
+// Code Collaboration Metrics
+export interface FileOwnership {
+  filePath: string;
+  primaryOwner: string;
+  ownershipPercentage: number;
+  contributors: { email: string; percentage: number }[];
+  lastModified: string;
+}
+
+export interface BusFactorAnalysis {
+  overallBusFactor: number; // 1 = dangerous, higher = safer
+  criticalFiles: string[]; // Files with single owner
+  riskLevel: 'high' | 'medium' | 'low';
+  recommendation: string;
+}
+
+export interface CollaborationPattern {
+  type: 'siloed' | 'collaborative' | 'mixed';
+  description: string;
+  collaborationScore: number; // 0-100
+}
+
+export interface KnowledgeSilo {
+  contributor: string;
+  exclusiveFiles: string[];
+  siloRisk: 'high' | 'medium' | 'low';
+  recommendation: string;
+}
+
+export interface ReviewPattern {
+  hasMergeCommits: boolean;
+  mergeCommitRatio: number;
+  averageTimeBetweenMerges: number; // in hours
+  topMergers: { name: string; count: number }[];
+}
+
+export interface CollaborationMetrics {
+  fileOwnership: FileOwnership[];
+  busFactor: BusFactorAnalysis;
+  collaborationPattern: CollaborationPattern;
+  knowledgeSilos: KnowledgeSilo[];
+  reviewPatterns: ReviewPattern;
+}
+
+// Cache types
+export interface CachedAnalysis {
+  result: AIEnhancedAnalysisResult;
+  cachedAt: number;
+  expiresAt: number;
+  repoKey: string;
 }

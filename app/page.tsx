@@ -15,8 +15,15 @@ import {
   ScoreDistributionChart,
   CommitTimelineChart,
   ContributorComparisonChart,
+  CommitHeatmap,
+  VelocityChart,
 } from '@/components/charts';
+import { TemporalPatternsPanel } from '@/components/TemporalPatternsPanel';
+import { CollaborationPanel } from '@/components/CollaborationPanel';
+import { SearchPanel } from '@/components/SearchPanel';
+import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { parseGitHubUrl } from '@/lib/url-parser';
+import { getCachedAnalysis, setCachedAnalysis } from '@/lib/cache';
 import { AIEnhancedAnalysisResult, AIEnhancedContributor, AIEnhancedCommit, GitHubError } from '@/types';
 
 export default function Home(): React.ReactElement {
@@ -27,7 +34,7 @@ export default function Home(): React.ReactElement {
   const [selectedContributor, setSelectedContributor] = useState<AIEnhancedContributor | null>(null);
   const [selectedCommit, setSelectedCommit] = useState<AIEnhancedCommit | null>(null);
 
-  const handleAnalyze = async (url: string): Promise<void> => {
+  const handleAnalyze = async (url: string, skipCache = false): Promise<void> => {
     const parsed = parseGitHubUrl(url);
     if (!parsed) {
       setError({
@@ -41,6 +48,20 @@ export default function Home(): React.ReactElement {
     setError(null);
     setResult(null);
     setFilters(createDefaultFilters());
+
+    // Check cache first (unless skipping)
+    if (!skipCache) {
+      try {
+        const cached = await getCachedAnalysis(parsed.owner, parsed.repo);
+        if (cached) {
+          setResult(cached);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Cache read failed:', e);
+      }
+    }
 
     try {
       const response = await fetch('/api/analyze', {
@@ -61,7 +82,15 @@ export default function Home(): React.ReactElement {
         return;
       }
 
-      setResult(data as AIEnhancedAnalysisResult);
+      const analysisResult = data as AIEnhancedAnalysisResult;
+      setResult(analysisResult);
+
+      // Store in cache
+      try {
+        await setCachedAnalysis(parsed.owner, parsed.repo, analysisResult);
+      } catch (e) {
+        console.warn('Cache write failed:', e);
+      }
     } catch {
       setError({
         type: 'NETWORK_ERROR',
@@ -130,11 +159,14 @@ export default function Home(): React.ReactElement {
   const displayScore = result?.aiRepositoryScore ?? result?.repositoryScore ?? 0;
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">GitScore</h1>
-          <p className="text-gray-600">Analyze GitHub repositories to evaluate Git commit practices</p>
+        <header className="text-center mb-12 relative">
+          <div className="absolute right-0 top-0">
+            <DarkModeToggle />
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">GitScore</h1>
+          <p className="text-gray-600 dark:text-gray-300">Analyze GitHub repositories to evaluate Git commit practices</p>
         </header>
 
         <div className="flex justify-center mb-8">
@@ -188,7 +220,10 @@ export default function Home(): React.ReactElement {
             </div>
 
             {/* Export Panel */}
-            <ExportPanel result={result} />
+            <div className="flex flex-wrap gap-4 items-center">
+              <ExportPanel result={result} />
+              <SearchPanel commits={result.commits} onSelectCommit={setSelectedCommit} />
+            </div>
 
             {/* Filter Panel */}
             <FilterPanel
@@ -210,6 +245,26 @@ export default function Home(): React.ReactElement {
               {/* AI Insights Section */}
               <AIInsightsList insights={result.aiInsights} aiEnabled={result.aiAnalysisEnabled} />
             </div>
+
+            {/* Temporal Analysis Section */}
+            {result.temporalAnalysis && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-gray-900">Temporal Analysis</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <CommitHeatmap temporalAnalysis={result.temporalAnalysis} />
+                  <VelocityChart velocity={result.temporalAnalysis.velocity} />
+                </div>
+                <TemporalPatternsPanel temporalAnalysis={result.temporalAnalysis} />
+              </div>
+            )}
+
+            {/* Collaboration Metrics Section */}
+            {result.collaborationMetrics && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold text-gray-900">Collaboration Metrics</h2>
+                <CollaborationPanel metrics={result.collaborationMetrics} />
+              </div>
+            )}
 
             {/* Contributors Section */}
             <div>

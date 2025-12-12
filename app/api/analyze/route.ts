@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createGitHubClient } from '@/lib/github-client';
 import { analyzeRepository } from '@/lib/commit-analyzer';
 import { createAIAnalyzer } from '@/lib/openai-client';
+import { analyzeTemporalPatterns } from '@/lib/temporal-analysis';
+import { analyzeCollaboration } from '@/lib/collaboration-analysis';
 import { GitHubError, AIEnhancedAnalysisResult } from '@/types';
 
 interface AnalyzeRequest {
@@ -35,12 +37,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Check if OpenAI API key is available for AI analysis
     const openaiKey = process.env.OPENAI_API_KEY;
 
+    // Perform temporal and collaboration analysis
+    const temporalAnalysis = analyzeTemporalPatterns(scoredResult.commits);
+    const collaborationMetrics = analyzeCollaboration(scoredResult.commits, scoredResult.contributors);
+
     if (openaiKey) {
       try {
         // Apply AI-powered semantic analysis
         const aiAnalyzer = createAIAnalyzer(openaiKey, 'gpt-4o-mini');
         const aiEnhancedResult = await aiAnalyzer.analyzeRepository(scoredResult);
-        return NextResponse.json(aiEnhancedResult);
+        return NextResponse.json({
+          ...aiEnhancedResult,
+          temporalAnalysis,
+          collaborationMetrics,
+        });
       } catch (aiError) {
         // If AI analysis fails, return heuristic results with aiAnalysisEnabled: false
         console.error('AI analysis failed:', aiError);
@@ -48,6 +58,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           ...scoredResult,
           aiInsights: [],
           aiAnalysisEnabled: false,
+          temporalAnalysis,
+          collaborationMetrics,
         };
         return NextResponse.json(fallbackResult);
       }
@@ -58,6 +70,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ...scoredResult,
       aiInsights: [],
       aiAnalysisEnabled: false,
+      temporalAnalysis,
+      collaborationMetrics,
     };
     return NextResponse.json(resultWithoutAI);
   } catch (error) {
