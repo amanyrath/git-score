@@ -1,161 +1,104 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { RepoInput } from '@/components/RepoInput';
+import { RepoInfo } from '@/components/RepoInfo';
+import { ContributorCard } from '@/components/ContributorCard';
+import { parseGitHubUrl } from '@/lib/url-parser';
+import { AnalysisResult, GitHubError } from '@/types';
 
-export default function Home() {
-  const router = useRouter();
-  const [url, setUrl] = useState('');
-  const [token, setToken] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+export default function Home(): React.ReactElement {
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<GitHubError | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const handleAnalyze = async (url: string): Promise<void> => {
+    const parsed = parseGitHubUrl(url);
+    if (!parsed) {
+      setError({
+        type: 'UNKNOWN',
+        message: 'Invalid repository URL',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
 
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, token: token || undefined }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          owner: parsed.owner,
+          repo: parsed.repo,
+        }),
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
-      if (!result.success) {
-        setError(result.error);
+      if (!response.ok) {
+        setError(data as GitHubError);
         return;
       }
 
-      // Store analysis in sessionStorage and navigate to results
-      sessionStorage.setItem('analysis', JSON.stringify(result.data));
-      router.push(`/results/${result.data.id}`);
-    } catch (err) {
-      setError('Failed to analyze repository. Please try again.');
+      setResult(data as AnalysisResult);
+    } catch {
+      setError({
+        type: 'NETWORK_ERROR',
+        message: 'Failed to connect to the server. Please try again.',
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            GitScore Pro
-          </h1>
-          <p className="text-lg text-gray-600">
-            AI-Powered Git Practice Analysis
-          </p>
+    <main className="min-h-screen p-8">
+      <div className="max-w-6xl mx-auto">
+        <header className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">GitScore</h1>
+          <p className="text-gray-600">Analyze GitHub repositories to evaluate Git commit practices</p>
+        </header>
+
+        <div className="flex justify-center mb-8">
+          <RepoInput onSubmit={handleAnalyze} isLoading={isLoading} />
         </div>
 
-        {/* Input Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Analyze a Repository</CardTitle>
-            <CardDescription>
-              Enter a GitHub repository URL to analyze commit practices and get actionable insights.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="url">GitHub Repository URL</Label>
-                <Input
-                  id="url"
-                  type="text"
-                  placeholder="https://github.com/owner/repo"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+            <p className="mt-4 text-gray-600">Analyzing repository...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+            <h3 className="font-semibold text-red-800">Error</h3>
+            <p className="text-red-700">{error.message}</p>
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-8">
+            <RepoInfo repository={result.repository} totalCommits={result.totalCommits} />
+
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Contributors ({result.contributors.length})
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {result.contributors.map((contributor) => (
+                  <ContributorCard key={contributor.email} contributor={contributor} />
+                ))}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="token">
-                  Personal Access Token{' '}
-                  <span className="text-gray-500 font-normal">(optional)</span>
-                </Label>
-                <Input
-                  id="token"
-                  type="password"
-                  placeholder="ghp_xxxxxxxxxxxx"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  disabled={loading}
-                />
-                <p className="text-xs text-gray-500">
-                  Required for private repos. Increases rate limit from 60 to 5000 requests/hour.
-                </p>
-              </div>
-
-              {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md">
-                  {error}
-                </div>
-              )}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        fill="none"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Analyzing...
-                  </span>
-                ) : (
-                  'Analyze Repository'
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Features */}
-        <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-          <div className="p-4">
-            <div className="text-2xl mb-2">📊</div>
-            <div className="text-sm font-medium">100+ Commits</div>
-            <div className="text-xs text-gray-500">Analyzed per repo</div>
+            </div>
           </div>
-          <div className="p-4">
-            <div className="text-2xl mb-2">👥</div>
-            <div className="text-sm font-medium">Per-User</div>
-            <div className="text-xs text-gray-500">Detailed breakdown</div>
-          </div>
-          <div className="p-4">
-            <div className="text-2xl mb-2">💡</div>
-            <div className="text-sm font-medium">Quick Wins</div>
-            <div className="text-xs text-gray-500">Actionable insights</div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Works with public repositories · Private repos require a token</p>
-        </div>
+        )}
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,132 +1,95 @@
-// Repository types
-export interface Repository {
-  id: number;
-  owner: string;
-  name: string;
-  fullName: string;
-  url: string;
-  defaultBranch: string;
-  description?: string;
-  language?: string;
-  stars: number;
-  forks: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// Author types
+// Author information from commit
 export interface Author {
   name: string;
   email: string;
-  username?: string;
   avatarUrl?: string;
 }
 
-// File change types
-export interface FileChange {
-  filename: string;
-  status: 'added' | 'modified' | 'deleted' | 'renamed';
+// Commit statistics
+export interface CommitStats {
   additions: number;
   deletions: number;
-  changes: number;
+  total: number;
+  filesChanged: number;
 }
 
-// Commit types
+// Individual commit data
 export interface Commit {
   sha: string;
   message: string;
-  body?: string;
+  timestamp: string;
   author: Author;
-  committer: Author;
-  timestamp: Date;
-  branch: string;
-  parents: string[];
-  stats: {
-    additions: number;
-    deletions: number;
-    total: number;
-    filesChanged: number;
-  };
-  files: FileChange[];
+  stats: CommitStats;
+  parentShas: string[];
+  isMergeCommit: boolean;
 }
 
-// Scoring types
-export interface CategoryScores {
-  messageQuality: number;
-  commitSize: number;
-  consistency: number;
-}
-
-export interface Score {
-  total: number;
-  breakdown: CategoryScores;
-}
-
-// Contributor analysis types
-export interface ContributorScores {
-  overall: number;
-  messageQuality: number;
-  commitSize: number;
-  consistency: number;
-}
-
-export interface ContributorAnalysis {
-  author: Author;
-  commits: Commit[];
-  totalCommits: number;
-  stats: {
-    totalAdditions: number;
-    totalDeletions: number;
-    avgCommitSize: number;
-    filesChanged: number;
-  };
-  scores: ContributorScores;
-  patterns: {
-    workingHours: number[];
-    preferredDays: number[];
-    velocity: number;
-  };
-}
-
-// Recommendation types
-export interface Recommendation {
-  id: string;
-  priority: 'high' | 'medium' | 'low';
-  category: string;
-  title: string;
-  description: string;
-  actionItems: string[];
-}
-
-// Analysis result types
-export interface AnalysisResult {
-  id: string;
-  repository: Repository;
-  analyzedAt: Date;
-  commits: Commit[];
-  totalCommits: number;
-  dateRange: [Date, Date];
-  contributors: ContributorAnalysis[];
-  totalContributors: number;
-  overallScore: number;
-  categoryScores: CategoryScores;
-  recommendations: Recommendation[];
-}
-
-// API types
-export interface AnalyzeRequest {
+// Repository metadata
+export interface Repository {
+  name: string;
+  fullName: string;
+  description: string | null;
+  defaultBranch: string;
+  starCount: number;
+  language: string | null;
+  createdAt: string;
+  updatedAt: string;
+  owner: string;
   url: string;
-  token?: string;
 }
 
-export interface AnalyzeResponse {
-  success: boolean;
-  data?: AnalysisResult;
-  error?: string;
+// Contributor statistics
+export interface ContributorStats {
+  totalCommits: number;
+  totalAdditions: number;
+  totalDeletions: number;
+  averageCommitSize: number;
+  firstCommitDate: string;
+  lastCommitDate: string;
 }
 
-// GitHub URL parsing
-export interface ParsedGitHubURL {
+// Contributor with their commits
+export interface Contributor {
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  commits: Commit[];
+  stats: ContributorStats;
+}
+
+// Analysis result combining repo and contributors
+export interface AnalysisResult {
+  repository: Repository;
+  commits: Commit[];
+  contributors: Contributor[];
+  totalCommits: number;
+  analyzedAt: string;
+}
+
+// Error types for different failure scenarios
+export type GitHubErrorType =
+  | 'NOT_FOUND'
+  | 'PRIVATE_REPO'
+  | 'RATE_LIMIT'
+  | 'NETWORK_ERROR'
+  | 'INVALID_TOKEN'
+  | 'UNKNOWN';
+
+export interface GitHubError {
+  type: GitHubErrorType;
+  message: string;
+  status?: number;
+}
+
+// Parsed repository URL
+export interface ParsedRepoUrl {
   owner: string;
   repo: string;
+}
+
+// API response state
+export interface ApiState<T> {
+  data: T | null;
+  loading: boolean;
+  error: GitHubError | null;
 }

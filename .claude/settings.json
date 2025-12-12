@@ -1,4 +1,27 @@
 {
+  "allowedCommands": [
+    "git stash",
+    "git checkout",
+    "git rebase",
+    "git reset",
+    "git status",
+    "git status --porcelain",
+    "git diff",
+    "git diff --name-only",
+    "git diff --cached",
+    "git diff --cached --name-only",
+    "git add",
+    "git add -A",
+    "git commit",
+    "git log",
+    "git rev-parse",
+    "git rev-parse --short HEAD",
+    "git rev-parse --show-toplevel",
+    "git ls-files",
+    "git ls-files --others --exclude-standard",
+    "/pluto-snap",
+    "/pluto-start"
+  ],
   "hooks": {
     "Stop": [
       {
@@ -10,17 +33,5 @@
         ]
       }
     ]
-  },
-  "allowedCommands": [
-    "git status",
-    "git diff",
-    "git add",
-    "git commit",
-    "git log",
-    "git rev-parse",
-    "git stash",
-    "git checkout",
-    "git rebase",
-    "git reset"
-  ]
+  }
 }
