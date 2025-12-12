@@ -62,6 +62,61 @@ export interface Score {
   breakdown: CategoryScores;
 }
 
+// AI Analysis types
+export type CommitIntent =
+  | 'feature'
+  | 'bugfix'
+  | 'refactor'
+  | 'docs'
+  | 'test'
+  | 'style'
+  | 'chore'
+  | 'performance'
+  | 'security';
+
+export interface SemanticAnalysis {
+  intent: CommitIntent;
+  intentConfidence: number;
+  clarity: number;
+  completeness: number;
+  technicalQuality: number;
+  reasoning: string;
+}
+
+export interface EnhancedCommitScore {
+  sha: string;
+  overall: number;
+  heuristicScore: number;
+  aiScores?: {
+    clarity: number;
+    completeness: number;
+    technicalQuality: number;
+  };
+  breakdown: {
+    heuristic: number; // 30%
+    clarity: number; // 25%
+    completeness: number; // 20%
+    size: number; // 20%
+    technical: number; // 5%
+  };
+}
+
+export interface AntiPatterns {
+  giantCommits: string[]; // SHAs of commits >1000 lines
+  tinyCommits: string[]; // SHAs of tiny vague commits
+  wipCommits: string[]; // SHAs containing WIP
+  mergeCommits: string[]; // SHAs of merge commits
+}
+
+export interface Insight {
+  title: string;
+  description: string;
+  impact: string;
+  recommendation: string;
+  severity: 'high' | 'medium' | 'low';
+  category: 'strength' | 'improvement' | 'pattern' | 'recommendation';
+}
+
 // Contributor analysis types
 export interface ContributorScores {
   overall: number;
@@ -111,6 +166,18 @@ export interface AnalysisResult {
   overallScore: number;
   categoryScores: CategoryScores;
   recommendations: Recommendation[];
+  // AI-enhanced fields (optional for backwards compatibility)
+  aiAnalysis?: {
+    semanticScores: Map<string, SemanticAnalysis> | Record<string, SemanticAnalysis>;
+    enhancedScores: EnhancedCommitScore[];
+    insights: Insight[];
+    antiPatterns: AntiPatterns;
+    tokenUsage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+  };
 }
 
 // API types
