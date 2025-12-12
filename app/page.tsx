@@ -11,6 +11,8 @@ export default function Home() {
   const router = useRouter();
   const [url, setUrl] = useState('');
   const [token, setToken] = useState('');
+  const [enableAI, setEnableAI] = useState(false);
+  const [openaiKey, setOpenaiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,7 +25,12 @@ export default function Home() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, token: token || undefined }),
+        body: JSON.stringify({
+          url,
+          token: token || undefined,
+          enableAI,
+          openaiKey: openaiKey || undefined,
+        }),
       });
 
       const result = await response.json();
@@ -96,6 +103,46 @@ export default function Home() {
                   Required for private repos. Increases rate limit from 60 to 5000 requests/hour.
                 </p>
               </div>
+
+              {/* AI Analysis Toggle */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="enableAI"
+                    checked={enableAI}
+                    onChange={(e) => setEnableAI(e.target.checked)}
+                    disabled={loading}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <Label htmlFor="enableAI" className="cursor-pointer">
+                    Enable AI-Powered Analysis
+                  </Label>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 ml-7">
+                  Uses GPT-4o-mini for semantic commit analysis and insights
+                </p>
+              </div>
+
+              {enableAI && (
+                <div className="space-y-2">
+                  <Label htmlFor="openaiKey">
+                    OpenAI API Key{' '}
+                    <span className="text-gray-500 font-normal">(required for AI)</span>
+                  </Label>
+                  <Input
+                    id="openaiKey"
+                    type="password"
+                    placeholder="sk-xxxxxxxxxxxx"
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Your key is only used for this request and is not stored.
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md">
