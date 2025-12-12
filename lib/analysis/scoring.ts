@@ -1,4 +1,12 @@
-import type { Commit, CategoryScores, Score, ContributorScores } from '@/types';
+import type {
+  Commit,
+  CategoryScores,
+  Score,
+  ContributorScores,
+  AntiPatterns,
+  EnhancedCommitScore,
+  SemanticAnalysis,
+} from '@/types';
 
 // Conventional commit prefixes
 const CONVENTIONAL_PREFIXES = [
@@ -214,4 +222,173 @@ export function getScoreColor(score: number): string {
   if (score >= 60) return '#f59e0b'; // amber
   if (score >= 40) return '#f97316'; // orange
   return '#ef4444'; // red
+}
+
+/**
+ * Detect anti-patterns in commits
+ */
+export function detectAntiPatterns(commits: Commit[]): AntiPatterns {
+  const giantCommits: string[] = [];
+  const tinyCommits: string[] = [];
+  const wipCommits: string[] = [];
+  const mergeCommits: string[] = [];
+
+  for (const commit of commits) {
+    // Giant commits: >1000 lines changed
+    if (commit.stats.total > 1000) {
+      giantCommits.push(commit.sha);
+    }
+
+    // Tiny/vague commits: <5 lines with short message
+    if (commit.stats.total < 5 && commit.message.length < 15) {
+      tinyCommits.push(commit.sha);
+    }
+
+    // WIP commits
+    if (/\bwip\b|work in progress/i.test(commit.message)) {
+      wipCommits.push(commit.sha);
+    }
+
+    // Merge commits: multiple parents
+    if (commit.parents.length > 1) {
+      mergeCommits.push(commit.sha);
+    }
+  }
+
+  return { giantCommits, tinyCommits, wipCommits, mergeCommits };
+}
+
+/**
+ * Calculate heuristic score for a single commit (0-100)
+ */
+export function calculateSingleCommitHeuristicScore(commit: Commit): number {
+  // Message quality (60%)
+  let messageScore = 0;
+
+  // Conventional commit prefix (40 pts)
+  const prefixPattern = new RegExp(`^(${CONVENTIONAL_PREFIXES.join('|')})(\\(.+\\))?:`, 'i');
+  if (prefixPattern.test(commit.message)) {
+    messageScore += 40;
+  }
+
+  // Message length (30 pts)
+  const msgLen = commit.message.length;
+  if (msgLen >= 20 && msgLen <= 72) {
+    messageScore += 30;
+  } else if (msgLen >= 10 && msgLen <= 100) {
+    messageScore += 15;
+  }
+
+  // Imperative mood (30 pts)
+  const firstWord = commit.message
+    .replace(/^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?:\s*/i, '')
+    .split(/\s+/)[0]
+    .toLowerCase();
+  if (IMPERATIVE_VERBS.some((verb) => firstWord.startsWith(verb))) {
+    messageScore += 30;
+  }
+
+  // Size score (40%)
+  let sizeScore = 0;
+  const linesChanged = commit.stats.total;
+  const filesChanged = commit.stats.filesChanged;
+
+  // Lines changed (50 pts of size)
+  if (linesChanged >= 10 && linesChanged <= 200) {
+    sizeScore += 50;
+  } else if (linesChanged > 200 && linesChanged <= 500) {
+    sizeScore += 30;
+  } else if (linesChanged > 500 && linesChanged <= 1000) {
+    sizeScore += 15;
+  }
+
+  // Files changed (50 pts of size)
+  if (filesChanged >= 1 && filesChanged <= 5) {
+    sizeScore += 50;
+  } else if (filesChanged > 5 && filesChanged <= 10) {
+    sizeScore += 30;
+  } else if (filesChanged > 10 && filesChanged <= 20) {
+    sizeScore += 15;
+  }
+
+  // Weighted combination: message (60%) + size (40%)
+  return Math.round(messageScore * 0.6 + sizeScore * 0.4);
+}
+
+/**
+ * Calculate enhanced scores combining heuristic and AI analysis
+ * Weights: Heuristic 30%, AI Clarity 25%, Completeness 20%, Size 20%, Technical 5%
+ */
+export function calculateEnhancedScores(
+  commits: Commit[],
+  semanticAnalysis: Map<string, SemanticAnalysis>
+): EnhancedCommitScore[] {
+  return commits.map((commit) => {
+    const heuristicScore = calculateSingleCommitHeuristicScore(commit);
+    const aiAnalysis = semanticAnalysis.get(commit.sha);
+
+    // Size score (same as in heuristic but standalone for breakdown)
+    let sizeScore = 0;
+    const linesChanged = commit.stats.total;
+    const filesChanged = commit.stats.filesChanged;
+
+    if (linesChanged >= 10 && linesChanged <= 200) {
+      sizeScore += 50;
+    } else if (linesChanged > 200 && linesChanged <= 500) {
+      sizeScore += 30;
+    } else if (linesChanged > 500 && linesChanged <= 1000) {
+      sizeScore += 15;
+    }
+
+    if (filesChanged >= 1 && filesChanged <= 5) {
+      sizeScore += 50;
+    } else if (filesChanged > 5 && filesChanged <= 10) {
+      sizeScore += 30;
+    } else if (filesChanged > 10 && filesChanged <= 20) {
+      sizeScore += 15;
+    }
+
+    if (aiAnalysis) {
+      // Full enhanced scoring with AI
+      const overall = Math.round(
+        heuristicScore * 0.3 +
+        aiAnalysis.clarity * 0.25 +
+        aiAnalysis.completeness * 0.2 +
+        sizeScore * 0.2 +
+        aiAnalysis.technicalQuality * 0.05
+      );
+
+      return {
+        sha: commit.sha,
+        overall,
+        heuristicScore,
+        aiScores: {
+          clarity: aiAnalysis.clarity,
+          completeness: aiAnalysis.completeness,
+          technicalQuality: aiAnalysis.technicalQuality,
+        },
+        breakdown: {
+          heuristic: Math.round(heuristicScore * 0.3),
+          clarity: Math.round(aiAnalysis.clarity * 0.25),
+          completeness: Math.round(aiAnalysis.completeness * 0.2),
+          size: Math.round(sizeScore * 0.2),
+          technical: Math.round(aiAnalysis.technicalQuality * 0.05),
+        },
+      };
+    } else {
+      // Fallback: heuristic only (scale to 100)
+      return {
+        sha: commit.sha,
+        overall: heuristicScore,
+        heuristicScore,
+        breakdown: {
+          heuristic: Math.round(heuristicScore * 0.3),
+          clarity: 0,
+          completeness: 0,
+          size: Math.round(sizeScore * 0.2),
+          technical: 0,
+        },
+      };
+    }
+  });
 }
