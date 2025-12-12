@@ -7,6 +7,7 @@ import { ScoreDisplay } from './ScoreDisplay';
 import { CategoryBar } from './CategoryBar';
 import { UserCard } from './UserCard';
 import { RecommendationList } from './RecommendationList';
+import { InsightCard } from './InsightCard';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
@@ -23,7 +24,10 @@ export function Dashboard({ analysis }: DashboardProps) {
     overallScore,
     categoryScores,
     recommendations,
+    aiAnalysis,
   } = analysis;
+
+  const hasAI = !!aiAnalysis;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -91,6 +95,71 @@ export function Dashboard({ analysis }: DashboardProps) {
       <section>
         <RecommendationList recommendations={recommendations} />
       </section>
+
+      {/* AI Insights */}
+      {hasAI && aiAnalysis.insights && aiAnalysis.insights.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xl font-semibold">AI Insights</h2>
+            <Badge variant="secondary" className="text-xs">Powered by GPT-4</Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {aiAnalysis.insights.map((insight, index) => (
+              <InsightCard key={index} insight={insight} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Anti-Patterns */}
+      {hasAI && aiAnalysis.antiPatterns && (
+        <section>
+          <Card>
+            <CardHeader>
+              <CardTitle>Anti-Patterns Detected</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">
+                    {aiAnalysis.antiPatterns.giantCommits.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Giant Commits</div>
+                  <div className="text-xs text-gray-400">&gt;1000 lines</div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {aiAnalysis.antiPatterns.tinyCommits.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Tiny Commits</div>
+                  <div className="text-xs text-gray-400">Vague messages</div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {aiAnalysis.antiPatterns.wipCommits.length}
+                  </div>
+                  <div className="text-sm text-gray-600">WIP Commits</div>
+                  <div className="text-xs text-gray-400">Work in progress</div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {aiAnalysis.antiPatterns.mergeCommits.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Merge Commits</div>
+                  <div className="text-xs text-gray-400">Multiple parents</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* Token Usage (for AI analysis) */}
+      {hasAI && aiAnalysis.tokenUsage && (
+        <section className="text-center text-xs text-gray-400">
+          AI Analysis: {aiAnalysis.tokenUsage.totalTokens.toLocaleString()} tokens used
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="text-center text-sm text-gray-500 pt-8 border-t">
