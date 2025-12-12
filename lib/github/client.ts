@@ -6,6 +6,62 @@ interface GitHubConfig {
   baseUrl?: string;
 }
 
+// GraphQL response types
+interface GraphQLCommitNode {
+  oid: string;
+  message: string;
+  committedDate: string;
+  additions: number;
+  deletions: number;
+  changedFilesIfAvailable: number | null;
+  parents: {
+    nodes: Array<{ oid: string }>;
+  };
+  author: {
+    name: string | null;
+    email: string | null;
+    user: {
+      login: string;
+      avatarUrl: string;
+    } | null;
+  };
+  committer: {
+    name: string | null;
+    email: string | null;
+    user: {
+      login: string;
+      avatarUrl: string;
+    } | null;
+  };
+}
+
+interface GraphQLResponse {
+  repository: {
+    databaseId: number;
+    name: string;
+    nameWithOwner: string;
+    url: string;
+    description: string | null;
+    primaryLanguage: { name: string } | null;
+    stargazerCount: number;
+    forkCount: number;
+    createdAt: string;
+    updatedAt: string;
+    defaultBranchRef: {
+      name: string;
+      target: {
+        history: {
+          nodes: GraphQLCommitNode[];
+          pageInfo: {
+            hasNextPage: boolean;
+            endCursor: string | null;
+          };
+        };
+      };
+    } | null;
+  };
+}
+
 export class GitHubClient {
   private octokit: Octokit;
 
@@ -29,7 +85,7 @@ export class GitHubClient {
       if (match) {
         return {
           owner: match[1],
-          repo: match[2].replace(/\.git$/, ''),
+          repo: match[2].replace(/\.git$/, '').replace(/\/$/, ''),
         };
       }
     }
@@ -37,95 +93,153 @@ export class GitHubClient {
     return null;
   }
 
-  // Fetch repository metadata
-  async getRepository(owner: string, repo: string): Promise<Repository> {
-    const { data } = await this.octokit.repos.get({ owner, repo });
+  // Fetch repository and commits in a single GraphQL query
+  async getRepositoryWithCommits(
+    owner: string,
+    repo: string,
+    options: { limit?: number } = {}
+  ): Promise<{ repository: Repository; commits: Commit[] }> {
+    const { limit = 100 } = options;
 
-    return {
-      id: data.id,
-      owner: data.owner.login,
-      name: data.name,
-      fullName: data.full_name,
-      url: data.html_url,
-      defaultBranch: data.default_branch,
-      description: data.description || undefined,
-      language: data.language || undefined,
-      stars: data.stargazers_count,
-      forks: data.forks_count,
-      createdAt: new Date(data.created_at),
-      updatedAt: new Date(data.updated_at),
+    const query = `
+      query($owner: String!, $repo: String!, $limit: Int!) {
+        repository(owner: $owner, name: $repo) {
+          databaseId
+          name
+          nameWithOwner
+          url
+          description
+          primaryLanguage { name }
+          stargazerCount
+          forkCount
+          createdAt
+          updatedAt
+          defaultBranchRef {
+            name
+            target {
+              ... on Commit {
+                history(first: $limit) {
+                  nodes {
+                    oid
+                    message
+                    committedDate
+                    additions
+                    deletions
+                    changedFilesIfAvailable
+                    parents(first: 5) {
+                      nodes { oid }
+                    }
+                    author {
+                      name
+                      email
+                      user { login avatarUrl }
+                    }
+                    committer {
+                      name
+                      email
+                      user { login avatarUrl }
+                    }
+                  }
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await this.octokit.graphql<GraphQLResponse>(query, {
+      owner,
+      repo,
+      limit: Math.min(limit, 100),
+    });
+
+    if (!response.repository) {
+      throw new Error('Repository not found');
+    }
+
+    const repoData = response.repository;
+    const defaultBranch = repoData.defaultBranchRef?.name || 'main';
+    const commitNodes = repoData.defaultBranchRef?.target?.history?.nodes || [];
+
+    // Map repository data
+    const repository: Repository = {
+      id: repoData.databaseId,
+      owner,
+      name: repoData.name,
+      fullName: repoData.nameWithOwner,
+      url: repoData.url,
+      defaultBranch,
+      description: repoData.description || undefined,
+      language: repoData.primaryLanguage?.name || undefined,
+      stars: repoData.stargazerCount,
+      forks: repoData.forkCount,
+      createdAt: new Date(repoData.createdAt),
+      updatedAt: new Date(repoData.updatedAt),
     };
+
+    // Map commits data
+    const commits: Commit[] = commitNodes.map((node) => {
+      const messageParts = node.message.split('\n');
+      const firstLine = messageParts[0];
+      const body = messageParts.slice(1).join('\n').trim() || undefined;
+
+      const author: Author = {
+        name: node.author.name || 'Unknown',
+        email: node.author.email || 'unknown@unknown.com',
+        username: node.author.user?.login,
+        avatarUrl: node.author.user?.avatarUrl,
+      };
+
+      const committer: Author = {
+        name: node.committer.name || 'Unknown',
+        email: node.committer.email || 'unknown@unknown.com',
+        username: node.committer.user?.login,
+        avatarUrl: node.committer.user?.avatarUrl,
+      };
+
+      const additions = node.additions || 0;
+      const deletions = node.deletions || 0;
+
+      return {
+        sha: node.oid,
+        message: firstLine,
+        body,
+        author,
+        committer,
+        timestamp: new Date(node.committedDate),
+        branch: defaultBranch,
+        parents: node.parents.nodes.map((p) => p.oid),
+        stats: {
+          additions,
+          deletions,
+          total: additions + deletions,
+          filesChanged: node.changedFilesIfAvailable || 0,
+        },
+        files: [] as FileChange[], // GraphQL doesn't include file details in history query
+      };
+    });
+
+    return { repository, commits };
   }
 
-  // Fetch commits from repository (limited to 100 for MVP)
+  // Legacy method for backwards compatibility - now uses GraphQL internally
+  async getRepository(owner: string, repo: string): Promise<Repository> {
+    const { repository } = await this.getRepositoryWithCommits(owner, repo, { limit: 1 });
+    return repository;
+  }
+
+  // Legacy method for backwards compatibility - now uses GraphQL internally
   async getCommits(
     owner: string,
     repo: string,
-    options: {
-      branch?: string;
-      limit?: number;
-    } = {}
+    options: { branch?: string; limit?: number } = {}
   ): Promise<Commit[]> {
-    const { branch, limit = 100 } = options;
-
-    const { data: commitList } = await this.octokit.repos.listCommits({
-      owner,
-      repo,
-      sha: branch,
-      per_page: Math.min(limit, 100),
-    });
-
-    // Fetch detailed commit info for each commit
-    const commits: Commit[] = await Promise.all(
-      commitList.map(async (commit) => {
-        const { data: details } = await this.octokit.repos.getCommit({
-          owner,
-          repo,
-          ref: commit.sha,
-        });
-
-        const author: Author = {
-          name: commit.commit.author?.name || 'Unknown',
-          email: commit.commit.author?.email || 'unknown@unknown.com',
-          username: commit.author?.login,
-          avatarUrl: commit.author?.avatar_url,
-        };
-
-        const committer: Author = {
-          name: commit.commit.committer?.name || 'Unknown',
-          email: commit.commit.committer?.email || 'unknown@unknown.com',
-          username: commit.committer?.login,
-          avatarUrl: commit.committer?.avatar_url,
-        };
-
-        const files: FileChange[] = (details.files || []).map((file) => ({
-          filename: file.filename,
-          status: file.status as FileChange['status'],
-          additions: file.additions,
-          deletions: file.deletions,
-          changes: file.changes,
-        }));
-
-        return {
-          sha: commit.sha,
-          message: commit.commit.message.split('\n')[0], // First line only
-          body: commit.commit.message.split('\n').slice(1).join('\n').trim() || undefined,
-          author,
-          committer,
-          timestamp: new Date(commit.commit.author?.date || Date.now()),
-          branch: branch || 'main',
-          parents: commit.parents.map((p) => p.sha),
-          stats: {
-            additions: details.stats?.additions || 0,
-            deletions: details.stats?.deletions || 0,
-            total: details.stats?.total || 0,
-            filesChanged: details.files?.length || 0,
-          },
-          files,
-        };
-      })
-    );
-
+    const { commits } = await this.getRepositoryWithCommits(owner, repo, options);
     return commits;
   }
 
@@ -136,13 +250,25 @@ export class GitHubClient {
       limit: data.rate.limit,
       remaining: data.rate.remaining,
       reset: new Date(data.rate.reset * 1000),
+      graphql: {
+        limit: data.resources.graphql?.limit || 0,
+        remaining: data.resources.graphql?.remaining || 0,
+        reset: new Date((data.resources.graphql?.reset || 0) * 1000),
+      },
     };
   }
 
   // Validate repository accessibility
   async validateRepository(owner: string, repo: string): Promise<boolean> {
     try {
-      await this.octokit.repos.get({ owner, repo });
+      const query = `
+        query($owner: String!, $repo: String!) {
+          repository(owner: $owner, name: $repo) {
+            id
+          }
+        }
+      `;
+      await this.octokit.graphql(query, { owner, repo });
       return true;
     } catch {
       return false;
