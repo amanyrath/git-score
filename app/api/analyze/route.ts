@@ -29,21 +29,8 @@ export async function POST(request: NextRequest) {
     // Initialize GitHub client
     const client = new GitHubClient({ auth: token });
 
-    // Validate repository accessibility
-    const isValid = await client.validateRepository(owner, repo);
-    if (!isValid) {
-      return NextResponse.json(
-        { success: false, error: 'Repository not found or not accessible' },
-        { status: 404 }
-      );
-    }
-
-    // Fetch repository metadata
-    const repository = await client.getRepository(owner, repo);
-
-    // Fetch commits (limited to 100 for MVP)
-    const commits = await client.getCommits(owner, repo, {
-      branch: repository.defaultBranch,
+    // Fetch repository and commits in a single GraphQL query (1 API call vs 101)
+    const { repository, commits } = await client.getRepositoryWithCommits(owner, repo, {
       limit: 100,
     });
 
