@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { RepoInput } from '@/components/RepoInput';
 import { RepoInfo } from '@/components/RepoInfo';
 import { ContributorCard } from '@/components/ContributorCard';
+import { ScoreCard } from '@/components/ScoreCard';
+import { AntiPatternsList } from '@/components/AntiPatternsList';
 import { parseGitHubUrl } from '@/lib/url-parser';
-import { AnalysisResult, GitHubError } from '@/types';
+import { ScoredAnalysisResult, GitHubError } from '@/types';
 
 export default function Home(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<ScoredAnalysisResult | null>(null);
   const [error, setError] = useState<GitHubError | null>(null);
 
   const handleAnalyze = async (url: string): Promise<void> => {
@@ -45,7 +47,7 @@ export default function Home(): React.ReactElement {
         return;
       }
 
-      setResult(data as AnalysisResult);
+      setResult(data as ScoredAnalysisResult);
     } catch {
       setError({
         type: 'NETWORK_ERROR',
@@ -84,8 +86,19 @@ export default function Home(): React.ReactElement {
 
         {result && (
           <div className="space-y-8">
-            <RepoInfo repository={result.repository} totalCommits={result.totalCommits} />
+            {/* Repository Info with Score */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div className="flex-1">
+                  <RepoInfo repository={result.repository} totalCommits={result.totalCommits} />
+                </div>
+                <div className="flex justify-center">
+                  <ScoreCard score={result.repositoryScore} label="Overall Score" size="large" />
+                </div>
+              </div>
+            </div>
 
+            {/* Contributors Section */}
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 Contributors ({result.contributors.length})
@@ -96,6 +109,9 @@ export default function Home(): React.ReactElement {
                 ))}
               </div>
             </div>
+
+            {/* Anti-Patterns / Insights Section */}
+            <AntiPatternsList insights={result.insights} />
           </div>
         )}
       </div>

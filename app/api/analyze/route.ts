@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createGitHubClient } from '@/lib/github-client';
+import { analyzeRepository } from '@/lib/commit-analyzer';
 import { GitHubError } from '@/types';
 
 interface AnalyzeRequest {
@@ -24,8 +25,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const token = process.env.GITHUB_TOKEN;
     const client = createGitHubClient(token);
 
-    const result = await client.analyzeRepository(owner, repo);
-    return NextResponse.json(result);
+    // Fetch repository data from GitHub
+    const rawResult = await client.analyzeRepository(owner, repo);
+
+    // Apply heuristic-based commit analysis scoring
+    const scoredResult = analyzeRepository(rawResult);
+
+    return NextResponse.json(scoredResult);
   } catch (error) {
     // Check if it's our GitHubError type
     if (error && typeof error === 'object' && 'type' in error && 'message' in error) {

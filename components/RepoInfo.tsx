@@ -17,7 +17,7 @@ export function RepoInfo({ repository, totalCommits }: RepoInfoProps): React.Rea
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div>
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">{repository.fullName}</h2>
