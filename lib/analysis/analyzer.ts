@@ -6,6 +6,8 @@ import type {
   AnalysisResult,
   ContributorAnalysis,
   Recommendation,
+  AntiPattern,
+  AntiPatternSummary,
 } from '@/types';
 import { calculateScore, calculateContributorScores } from './scoring';
 
@@ -53,6 +55,73 @@ function analyzeContributor(commits: Commit[]): ContributorAnalysis {
       preferredDays: [...new Set(preferredDays)].sort((a, b) => a - b),
       velocity: Math.round(velocity * 100) / 100,
     },
+  };
+}
+
+// WIP patterns to detect
+const WIP_PATTERNS = [
+  /^wip\b/i,
+  /\bwork in progress\b/i,
+  /^fixup!/i,
+  /^squash!/i,
+  /^todo\b/i,
+  /^temp\b/i,
+  /^tmp\b/i,
+  /^xxx\b/i,
+  /^debugging\b/i,
+];
+
+/**
+ * Detect anti-patterns in commits
+ */
+function detectAntiPatterns(commits: Commit[]): AntiPatternSummary {
+  const patterns: AntiPattern[] = [];
+
+  for (const commit of commits) {
+    // Giant commits (>1000 lines changed)
+    if (commit.stats.total > 1000) {
+      patterns.push({
+        type: 'giant_commit',
+        commit,
+        reason: `${commit.stats.total} lines changed (threshold: 1000)`,
+      });
+    }
+
+    // Tiny commits (<10 lines with short message)
+    if (commit.stats.total < 10 && commit.message.length < 20 && !commit.body) {
+      patterns.push({
+        type: 'tiny_commit',
+        commit,
+        reason: `Only ${commit.stats.total} lines with minimal message context`,
+      });
+    }
+
+    // WIP commits
+    if (WIP_PATTERNS.some((pattern) => pattern.test(commit.message))) {
+      patterns.push({
+        type: 'wip_commit',
+        commit,
+        reason: 'Commit message indicates work-in-progress',
+      });
+    }
+
+    // Merge commits (multiple parents)
+    if (commit.parents.length > 1) {
+      patterns.push({
+        type: 'merge_commit',
+        commit,
+        reason: 'Merge commit detected (consider rebasing for cleaner history)',
+      });
+    }
+  }
+
+  return {
+    giantCommits: patterns.filter((p) => p.type === 'giant_commit').length,
+    tinyCommits: patterns.filter((p) => p.type === 'tiny_commit').length,
+    wipCommits: patterns.filter((p) => p.type === 'wip_commit').length,
+    mergeCommits: patterns.filter((p) => p.type === 'merge_commit').length,
+    total: patterns.length,
+    patterns,
   };
 }
 
@@ -155,6 +224,9 @@ export function analyzeRepository(
     new Date(Math.max(...timestamps.map((t) => t.getTime()))),
   ];
 
+  // Detect anti-patterns
+  const antiPatterns = detectAntiPatterns(commits);
+
   // Generate recommendations
   const recommendations = generateRecommendations(commits, score.breakdown);
 
@@ -169,6 +241,7 @@ export function analyzeRepository(
     totalContributors: contributors.length,
     overallScore: score.total,
     categoryScores: score.breakdown,
+    antiPatterns,
     recommendations,
   };
 }
