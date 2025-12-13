@@ -19,6 +19,7 @@ import {
   CategoryRadar,
   CommitHeatmap,
 } from '@/components/charts';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
@@ -72,6 +73,11 @@ export function Dashboard({ analysis }: DashboardProps) {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
+      {/* Theme Toggle */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* Header */}
       <header className="text-center space-y-2">
         <div className="flex items-center justify-center gap-2">
