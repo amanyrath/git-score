@@ -59,10 +59,7 @@ export function ContributorComparison({ contributors }: ContributorComparisonPro
                 width={80}
               />
               <Tooltip
-                formatter={(value: number, name: string, props: { payload: { fullName: string; commits: number } }) => [
-                  `${value} (${props.payload.commits} commits)`,
-                  props.payload.fullName,
-                ]}
+                formatter={(value: number) => [`${value}`, 'Score']}
                 contentStyle={{ fontSize: 12 }}
               />
               <Bar dataKey="score" radius={[0, 4, 4, 0]}>
