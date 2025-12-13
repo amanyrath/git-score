@@ -8,6 +8,7 @@ import { CategoryBar } from './CategoryBar';
 import { UserCard } from './UserCard';
 import { RecommendationList } from './RecommendationList';
 import { AntiPatternCard } from './AntiPatternCard';
+import { AIInsightsCard } from './AIInsightsCard';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
@@ -25,6 +26,8 @@ export function Dashboard({ analysis }: DashboardProps) {
     categoryScores,
     antiPatterns,
     recommendations,
+    aiInsights,
+    aiEnabled,
   } = analysis;
 
   return (
@@ -85,6 +88,11 @@ export function Dashboard({ analysis }: DashboardProps) {
       {/* Anti-Patterns */}
       <section>
         <AntiPatternCard antiPatterns={antiPatterns} />
+      </section>
+
+      {/* AI Insights */}
+      <section>
+        <AIInsightsCard insights={aiInsights} enabled={aiEnabled ?? false} />
       </section>
 
       {/* Contributors Grid */}
