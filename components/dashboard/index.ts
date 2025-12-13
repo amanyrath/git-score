@@ -5,3 +5,4 @@ export * from './UserCard';
 export * from './RecommendationList';
 export * from './AntiPatternCard';
 export * from './AIInsightsCard';
+export * from './CommitActivityChart';
