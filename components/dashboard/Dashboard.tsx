@@ -7,6 +7,7 @@ import { ScoreDisplay } from './ScoreDisplay';
 import { CategoryBar } from './CategoryBar';
 import { UserCard } from './UserCard';
 import { RecommendationList } from './RecommendationList';
+import { AntiPatternCard } from './AntiPatternCard';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
@@ -22,6 +23,7 @@ export function Dashboard({ analysis }: DashboardProps) {
     contributors,
     overallScore,
     categoryScores,
+    antiPatterns,
     recommendations,
   } = analysis;
 
@@ -78,6 +80,11 @@ export function Dashboard({ analysis }: DashboardProps) {
             />
           </CardContent>
         </Card>
+      </section>
+
+      {/* Anti-Patterns */}
+      <section>
+        <AntiPatternCard antiPatterns={antiPatterns} />
       </section>
 
       {/* Contributors Grid */}
