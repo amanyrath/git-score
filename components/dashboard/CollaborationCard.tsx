@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { CollaborationMetrics } from '@/lib/analysis/collaboration';
+import type { CollaborationMetrics } from '@/types';
 
 interface CollaborationCardProps {
   metrics: CollaborationMetrics;
