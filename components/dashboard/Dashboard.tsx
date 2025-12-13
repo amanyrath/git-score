@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { AnalysisResult } from '@/types';
+import type { AnalysisResult, ContributorAnalysis } from '@/types';
 import { ScoreDisplay } from './ScoreDisplay';
 import { CategoryBar } from './CategoryBar';
 import { UserCard } from './UserCard';
 import { RecommendationList } from './RecommendationList';
 import { InsightCard } from './InsightCard';
+import { ContributorModal } from './ContributorModal';
 import {
   ScoreDistribution,
   CommitTimeline,
@@ -35,6 +37,9 @@ export function Dashboard({ analysis }: DashboardProps) {
   } = analysis;
 
   const hasAI = !!aiAnalysis;
+
+  // Modal state for contributor details
+  const [selectedContributor, setSelectedContributor] = useState<ContributorAnalysis | null>(null);
 
   // Prepare score data for charts
   const commitScores = hasAI && aiAnalysis.enhancedScores
@@ -129,10 +134,23 @@ export function Dashboard({ analysis }: DashboardProps) {
         <h2 className="text-xl font-semibold mb-4">Contributors</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {contributors.map((contributor) => (
-            <UserCard key={contributor.author.email} contributor={contributor} />
+            <UserCard
+              key={contributor.author.email}
+              contributor={contributor}
+              onClick={() => setSelectedContributor(contributor)}
+            />
           ))}
         </div>
       </section>
+
+      {/* Contributor Detail Modal */}
+      {selectedContributor && (
+        <ContributorModal
+          contributor={selectedContributor}
+          open={!!selectedContributor}
+          onClose={() => setSelectedContributor(null)}
+        />
+      )}
 
       {/* Recommendations */}
       <section>

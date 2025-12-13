@@ -7,14 +7,18 @@ import { getScoreColor, getScoreDescription } from '@/lib/analysis';
 
 interface UserCardProps {
   contributor: ContributorAnalysis;
+  onClick?: () => void;
 }
 
-export function UserCard({ contributor }: UserCardProps) {
+export function UserCard({ contributor, onClick }: UserCardProps) {
   const { author, totalCommits, stats, scores } = contributor;
   const color = getScoreColor(scores.overall);
 
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card
+      className={`hover:shadow-lg transition-shadow ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
           {author.avatarUrl ? (
