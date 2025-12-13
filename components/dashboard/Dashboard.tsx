@@ -11,6 +11,7 @@ import { RecommendationList } from './RecommendationList';
 import { InsightCard } from './InsightCard';
 import { ContributorModal } from './ContributorModal';
 import { ExportPanel } from './ExportPanel';
+import { CollaborationCard } from './CollaborationCard';
 import {
   ScoreDistribution,
   CommitTimeline,
@@ -35,6 +36,7 @@ export function Dashboard({ analysis }: DashboardProps) {
     overallScore,
     categoryScores,
     recommendations,
+    collaboration,
     aiAnalysis,
   } = analysis;
 
@@ -147,6 +149,14 @@ export function Dashboard({ analysis }: DashboardProps) {
           ))}
         </div>
       </section>
+
+      {/* Collaboration Metrics */}
+      {collaboration && (
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Team Health</h2>
+          <CollaborationCard metrics={collaboration} />
+        </section>
+      )}
 
       {/* Contributor Detail Modal */}
       {selectedContributor && (
