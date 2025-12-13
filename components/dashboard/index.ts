@@ -6,3 +6,4 @@ export * from './RecommendationList';
 export * from './InsightCard';
 export * from './ContributorModal';
 export * from './ExportPanel';
+export * from './CollaborationCard';
