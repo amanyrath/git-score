@@ -153,6 +153,29 @@ export interface Recommendation {
   actionItems: string[];
 }
 
+// Collaboration analysis types
+export interface FileOwnership {
+  filename: string;
+  contributors: string[];
+  totalChanges: number;
+  primaryOwner: string;
+  ownershipPercent: number;
+}
+
+export interface KnowledgeSilo {
+  contributor: string;
+  email: string;
+  exclusiveFiles: string[];
+  riskLevel: 'high' | 'medium' | 'low';
+}
+
+export interface CollaborationMetrics {
+  busFactor: number;
+  knowledgeSilos: KnowledgeSilo[];
+  fileOwnership: FileOwnership[];
+  collaborationScore: number;
+}
+
 // Analysis result types
 export interface AnalysisResult {
   id: string;
@@ -166,6 +189,7 @@ export interface AnalysisResult {
   overallScore: number;
   categoryScores: CategoryScores;
   recommendations: Recommendation[];
+  collaboration?: CollaborationMetrics;
   // AI-enhanced fields (optional for backwards compatibility)
   aiAnalysis?: {
     semanticScores: Map<string, SemanticAnalysis> | Record<string, SemanticAnalysis>;
