@@ -1,23 +1,25 @@
 'use client';
 
-import { Progress } from '@/components/ui/progress';
 import { getScoreColor } from '@/lib/analysis';
 
 interface CategoryBarProps {
   label: string;
   value: number;
   max: number;
+  weight?: number;
 }
 
-export function CategoryBar({ label, value, max }: CategoryBarProps) {
+export function CategoryBar({ label, value, max, weight }: CategoryBarProps) {
   const percentage = (value / max) * 100;
-  const normalizedScore = (value / max) * 100; // Normalize to 0-100 for color
-  const color = getScoreColor(normalizedScore);
+  const color = getScoreColor(value);
 
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
-        <span className="font-medium text-gray-700">{label}</span>
+        <span className="font-medium text-gray-700">
+          {label}
+          {weight && <span className="text-gray-400 ml-1">({weight}% weight)</span>}
+        </span>
         <span className="text-gray-500">
           {value} / {max}
         </span>
