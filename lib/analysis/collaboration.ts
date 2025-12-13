@@ -1,26 +1,10 @@
-import type { Commit, ContributorAnalysis } from '@/types';
-
-export interface FileOwnership {
-  filename: string;
-  contributors: string[]; // emails
-  totalChanges: number;
-  primaryOwner: string;
-  ownershipPercent: number;
-}
-
-export interface KnowledgeSilo {
-  contributor: string;
-  email: string;
-  exclusiveFiles: string[];
-  riskLevel: 'high' | 'medium' | 'low';
-}
-
-export interface CollaborationMetrics {
-  busFactor: number;
-  knowledgeSilos: KnowledgeSilo[];
-  fileOwnership: FileOwnership[];
-  collaborationScore: number; // 0-100
-}
+import type {
+  Commit,
+  ContributorAnalysis,
+  CollaborationMetrics,
+  FileOwnership,
+  KnowledgeSilo,
+} from '@/types';
 
 /**
  * Analyze file ownership and detect knowledge silos
