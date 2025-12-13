@@ -61,17 +61,20 @@ export function Dashboard({ analysis }: DashboardProps) {
             <CategoryBar
               label="Message Quality"
               value={categoryScores.messageQuality}
-              max={40}
+              max={100}
+              weight={40}
             />
             <CategoryBar
               label="Commit Size"
               value={categoryScores.commitSize}
-              max={35}
+              max={100}
+              weight={35}
             />
             <CategoryBar
               label="Consistency"
               value={categoryScores.consistency}
-              max={25}
+              max={100}
+              weight={25}
             />
           </CardContent>
         </Card>
