@@ -1,10 +1,20 @@
 import OpenAI from 'openai';
 import type { Commit } from '@/types';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-initialize OpenAI client to avoid build-time errors
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openaiClient;
+}
 
 // Token tracking
 let totalTokensUsed = 0;
@@ -93,6 +103,16 @@ export async function analyzeCommits(commits: Commit[]): Promise<CommitAnalysis[
 }
 
 async function analyzeBatch(commits: Commit[]): Promise<CommitAnalysis[]> {
+  const openai = getOpenAI();
+  if (!openai) {
+    return commits.map(() => ({
+      intent: 'Analysis unavailable',
+      category: 'other' as const,
+      quality: 'needs_improvement' as const,
+      suggestions: [],
+    }));
+  }
+
   const commitData = commits.map((c, idx) => ({
     index: idx,
     message: c.message,
@@ -170,7 +190,8 @@ export async function generateRepositoryInsights(
   categoryScores: { messageQuality: number; commitSize: number; consistency: number },
   antiPatternCount: number
 ): Promise<RepositoryInsights> {
-  if (!process.env.OPENAI_API_KEY) {
+  const openai = getOpenAI();
+  if (!openai) {
     return {
       summary: 'AI analysis is disabled. Set OPENAI_API_KEY to enable.',
       strengths: [],
