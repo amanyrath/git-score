@@ -9,6 +9,7 @@ import { UserCard } from './UserCard';
 import { RecommendationList } from './RecommendationList';
 import { AntiPatternCard } from './AntiPatternCard';
 import { AIInsightsCard } from './AIInsightsCard';
+import { CommitActivityChart } from './CommitActivityChart';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
@@ -19,6 +20,7 @@ export function Dashboard({ analysis }: DashboardProps) {
   const {
     repository,
     analyzedAt,
+    commits,
     totalCommits,
     dateRange,
     contributors,
@@ -88,6 +90,11 @@ export function Dashboard({ analysis }: DashboardProps) {
       {/* Anti-Patterns */}
       <section>
         <AntiPatternCard antiPatterns={antiPatterns} />
+      </section>
+
+      {/* Commit Activity Chart */}
+      <section>
+        <CommitActivityChart commits={commits} dateRange={dateRange} />
       </section>
 
       {/* AI Insights */}
