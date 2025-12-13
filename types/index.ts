@@ -88,6 +88,24 @@ export interface ContributorAnalysis {
   };
 }
 
+// Anti-pattern types
+export type AntiPatternType = 'giant_commit' | 'tiny_commit' | 'wip_commit' | 'merge_commit';
+
+export interface AntiPattern {
+  type: AntiPatternType;
+  commit: Commit;
+  reason: string;
+}
+
+export interface AntiPatternSummary {
+  giantCommits: number;
+  tinyCommits: number;
+  wipCommits: number;
+  mergeCommits: number;
+  total: number;
+  patterns: AntiPattern[];
+}
+
 // Recommendation types
 export interface Recommendation {
   id: string;
@@ -110,6 +128,7 @@ export interface AnalysisResult {
   totalContributors: number;
   overallScore: number;
   categoryScores: CategoryScores;
+  antiPatterns: AntiPatternSummary;
   recommendations: Recommendation[];
 }
 
