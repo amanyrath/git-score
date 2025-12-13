@@ -2,18 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GitHubClient } from '@/lib/github';
 import { analyzeRepository } from '@/lib/analysis';
+import { generateRepositoryInsights } from '@/lib/ai';
 
 // Request validation schema
 const analyzeRequestSchema = z.object({
   url: z.string().min(1, 'URL is required'),
   token: z.string().optional(),
+  enableAI: z.boolean().optional().default(true),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
     const body = await request.json();
-    const { url, token } = analyzeRequestSchema.parse(body);
+    const { url, token, enableAI } = analyzeRequestSchema.parse(body);
 
     // Parse GitHub URL
     const parsed = GitHubClient.parseURL(url);
@@ -56,6 +58,24 @@ export async function POST(request: NextRequest) {
 
     // Analyze repository
     const analysis = analyzeRepository(repository, commits);
+
+    // Add AI insights if enabled
+    if (enableAI) {
+      try {
+        const aiInsights = await generateRepositoryInsights(
+          commits,
+          analysis.categoryScores,
+          analysis.antiPatterns.total
+        );
+        analysis.aiInsights = aiInsights;
+        analysis.aiEnabled = true;
+      } catch (aiError) {
+        console.warn('AI analysis failed:', aiError);
+        analysis.aiEnabled = false;
+      }
+    } else {
+      analysis.aiEnabled = false;
+    }
 
     return NextResponse.json({
       success: true,
