@@ -16,6 +16,7 @@ import {
   CommitTimeline,
   ContributorComparison,
   CategoryRadar,
+  CommitHeatmap,
 } from '@/components/charts';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -127,6 +128,9 @@ export function Dashboard({ analysis }: DashboardProps) {
           <CommitTimeline commits={commits} showScoreTrend={hasAI} />
           <ContributorComparison contributors={contributors} />
           <CategoryRadar categoryScores={categoryScores} aiScores={avgAiScores} />
+        </div>
+        <div className="mt-4">
+          <CommitHeatmap commits={commits} />
         </div>
       </section>
 
