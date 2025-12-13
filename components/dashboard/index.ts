@@ -3,3 +3,4 @@ export * from './ScoreDisplay';
 export * from './CategoryBar';
 export * from './UserCard';
 export * from './RecommendationList';
+export * from './AntiPatternCard';
