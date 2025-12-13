@@ -8,6 +8,12 @@ import { CategoryBar } from './CategoryBar';
 import { UserCard } from './UserCard';
 import { RecommendationList } from './RecommendationList';
 import { InsightCard } from './InsightCard';
+import {
+  ScoreDistribution,
+  CommitTimeline,
+  ContributorComparison,
+  CategoryRadar,
+} from '@/components/charts';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
@@ -21,6 +27,7 @@ export function Dashboard({ analysis }: DashboardProps) {
     totalCommits,
     dateRange,
     contributors,
+    commits,
     overallScore,
     categoryScores,
     recommendations,
@@ -28,6 +35,31 @@ export function Dashboard({ analysis }: DashboardProps) {
   } = analysis;
 
   const hasAI = !!aiAnalysis;
+
+  // Prepare score data for charts
+  const commitScores = hasAI && aiAnalysis.enhancedScores
+    ? aiAnalysis.enhancedScores
+    : contributors.flatMap((c) =>
+        c.commits.map(() => c.scores.overall)
+      );
+
+  // Calculate average AI scores for radar chart
+  const avgAiScores = hasAI && aiAnalysis.enhancedScores && aiAnalysis.enhancedScores.length > 0
+    ? {
+        clarity: Math.round(
+          aiAnalysis.enhancedScores.reduce((sum, s) => sum + (s.aiScores?.clarity || 0), 0) /
+            aiAnalysis.enhancedScores.length
+        ),
+        completeness: Math.round(
+          aiAnalysis.enhancedScores.reduce((sum, s) => sum + (s.aiScores?.completeness || 0), 0) /
+            aiAnalysis.enhancedScores.length
+        ),
+        technicalQuality: Math.round(
+          aiAnalysis.enhancedScores.reduce((sum, s) => sum + (s.aiScores?.technicalQuality || 0), 0) /
+            aiAnalysis.enhancedScores.length
+        ),
+      }
+    : undefined;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -79,6 +111,17 @@ export function Dashboard({ analysis }: DashboardProps) {
             />
           </CardContent>
         </Card>
+      </section>
+
+      {/* Visualizations */}
+      <section>
+        <h2 className="text-xl font-semibold mb-4">Visualizations</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ScoreDistribution scores={commitScores} />
+          <CommitTimeline commits={commits} showScoreTrend={hasAI} />
+          <ContributorComparison contributors={contributors} />
+          <CategoryRadar categoryScores={categoryScores} aiScores={avgAiScores} />
+        </div>
       </section>
 
       {/* Contributors Grid */}
