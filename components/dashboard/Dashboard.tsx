@@ -10,6 +10,7 @@ import { UserCard } from './UserCard';
 import { RecommendationList } from './RecommendationList';
 import { InsightCard } from './InsightCard';
 import { ContributorModal } from './ContributorModal';
+import { ExportPanel } from './ExportPanel';
 import {
   ScoreDistribution,
   CommitTimeline,
@@ -221,6 +222,11 @@ export function Dashboard({ analysis }: DashboardProps) {
           AI Analysis: {aiAnalysis.tokenUsage.totalTokens.toLocaleString()} tokens used
         </section>
       )}
+
+      {/* Export Panel */}
+      <section>
+        <ExportPanel analysis={analysis} />
+      </section>
 
       {/* Footer */}
       <footer className="text-center text-sm text-gray-500 pt-8 border-t">
