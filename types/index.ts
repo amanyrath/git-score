@@ -130,6 +130,9 @@ export interface AnalysisResult {
   categoryScores: CategoryScores;
   antiPatterns: AntiPatternSummary;
   recommendations: Recommendation[];
+  // AI-enhanced fields (optional - present when AI analysis is enabled)
+  aiInsights?: AIRepositoryInsights;
+  aiEnabled?: boolean;
 }
 
 // API types
@@ -148,4 +151,20 @@ export interface AnalyzeResponse {
 export interface ParsedGitHubURL {
   owner: string;
   repo: string;
+}
+
+// AI Analysis types
+export interface AICommitAnalysis {
+  intent: string;
+  category: 'feature' | 'bugfix' | 'refactor' | 'docs' | 'test' | 'chore' | 'other';
+  quality: 'excellent' | 'good' | 'needs_improvement' | 'poor';
+  suggestions: string[];
+}
+
+export interface AIRepositoryInsights {
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  overallAssessment: string;
 }
