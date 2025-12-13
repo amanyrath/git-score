@@ -4,6 +4,7 @@ import { GitHubClient } from '@/lib/github';
 import { analyzeRepository } from '@/lib/analysis';
 import { AIClient } from '@/lib/ai';
 import { detectAntiPatterns, calculateEnhancedScores } from '@/lib/analysis/scoring';
+import { analyzeCollaboration } from '@/lib/analysis/collaboration';
 
 // Request validation schema
 const analyzeRequestSchema = z.object({
@@ -47,6 +48,9 @@ export async function POST(request: NextRequest) {
 
     // Analyze repository (heuristic analysis)
     const analysis = analyzeRepository(repository, commits);
+
+    // Analyze collaboration patterns (bus factor, knowledge silos)
+    analysis.collaboration = analyzeCollaboration(commits, analysis.contributors);
 
     // AI-enhanced analysis (optional)
     if (enableAI) {
