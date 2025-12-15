@@ -6,8 +6,15 @@ import type {
   AnalysisResult,
   ContributorAnalysis,
   Recommendation,
+  RepositoryInsights,
 } from '@/types';
-import { calculateScore, calculateContributorScores } from './scoring';
+import {
+  calculateScore,
+  calculateContributorScores,
+  calculateContributorScore,
+  scoreAllCommits,
+  generateRepositoryInsights,
+} from './scoring';
 
 /**
  * Group commits by author email
@@ -22,6 +29,9 @@ function groupCommitsByAuthor(commits: Commit[]): Record<string, Commit[]> {
 function analyzeContributor(commits: Commit[]): ContributorAnalysis {
   const author = commits[0].author;
   const scores = calculateContributorScores(commits);
+
+  // Checkpoint 2: Enhanced contributor scoring
+  const scoring = calculateContributorScore(commits);
 
   const totalAdditions = commits.reduce((sum, c) => sum + c.stats.additions, 0);
   const totalDeletions = commits.reduce((sum, c) => sum + c.stats.deletions, 0);
@@ -54,6 +64,7 @@ function analyzeContributor(commits: Commit[]): ContributorAnalysis {
       lastCommitDate,
     },
     scores,
+    scoring,
     patterns: {
       workingHours: [...new Set(workingHours)].sort((a, b) => a - b),
       preferredDays: [...new Set(preferredDays)].sort((a, b) => a - b),
@@ -63,16 +74,66 @@ function analyzeContributor(commits: Commit[]): ContributorAnalysis {
 }
 
 /**
- * Generate recommendations based on analysis
+ * Generate recommendations based on analysis and anti-patterns
  */
 function generateRecommendations(
   commits: Commit[],
-  categoryScores: { messageQuality: number; commitSize: number; consistency: number }
+  categoryScores: { messageQuality: number; commitSize: number; consistency: number },
+  insights: RepositoryInsights
 ): Recommendation[] {
   const recommendations: Recommendation[] = [];
+  const { antiPatterns } = insights;
+
+  // Giant commits anti-pattern
+  if (antiPatterns.giantCommits.length > 0) {
+    recommendations.push({
+      id: uuidv4(),
+      priority: 'high',
+      category: 'Commit Size',
+      title: 'Avoid Giant Commits',
+      description: `Found ${antiPatterns.giantCommits.length} commit(s) with over 1000 lines changed. Large commits are hard to review and debug.`,
+      actionItems: [
+        'Break large changes into smaller, logical commits',
+        'Use git add -p to stage partial changes',
+        'Consider feature flags for incremental releases',
+      ],
+    });
+  }
+
+  // WIP commits anti-pattern
+  if (antiPatterns.wipCommits.length > 0) {
+    recommendations.push({
+      id: uuidv4(),
+      priority: 'medium',
+      category: 'Message Quality',
+      title: 'Avoid WIP Commits',
+      description: `Found ${antiPatterns.wipCommits.length} work-in-progress commit(s). WIP commits should be squashed before merging.`,
+      actionItems: [
+        'Use git rebase -i to squash WIP commits',
+        'Write meaningful commit messages from the start',
+        'Use git stash for temporary saves instead',
+      ],
+    });
+  }
+
+  // Tiny commits with vague messages
+  if (antiPatterns.tinyCommits.length > 0) {
+    recommendations.push({
+      id: uuidv4(),
+      priority: 'medium',
+      category: 'Message Quality',
+      title: 'Improve Small Commit Messages',
+      description: `Found ${antiPatterns.tinyCommits.length} tiny commit(s) with vague messages. Even small changes deserve clear descriptions.`,
+      actionItems: [
+        'Describe what the change does, not just "fix" or "update"',
+        'Include context about why the change was needed',
+        'Consider combining related tiny commits',
+      ],
+    });
+  }
 
   // Message quality recommendations
-  if (categoryScores.messageQuality < 30) {
+  if (categoryScores.messageQuality < 30 && recommendations.length < 3) {
     recommendations.push({
       id: uuidv4(),
       priority: 'high',
@@ -88,7 +149,7 @@ function generateRecommendations(
   }
 
   // Commit size recommendations
-  if (categoryScores.commitSize < 25) {
+  if (categoryScores.commitSize < 25 && recommendations.length < 3) {
     recommendations.push({
       id: uuidv4(),
       priority: 'high',
@@ -104,7 +165,7 @@ function generateRecommendations(
   }
 
   // Consistency recommendations
-  if (categoryScores.consistency < 20) {
+  if (categoryScores.consistency < 20 && recommendations.length < 3) {
     recommendations.push({
       id: uuidv4(),
       priority: 'medium',
@@ -135,7 +196,7 @@ function generateRecommendations(
     });
   }
 
-  return recommendations.slice(0, 3); // Return top 3 recommendations
+  return recommendations.slice(0, 5); // Return top 5 recommendations
 }
 
 /**
@@ -145,8 +206,14 @@ export function analyzeRepository(
   repository: Repository,
   commits: Commit[]
 ): AnalysisResult {
-  // Calculate overall scores
+  // Calculate overall scores (legacy)
   const score = calculateScore(commits);
+
+  // Checkpoint 2: Score all commits individually
+  const commitScores = scoreAllCommits(commits);
+
+  // Checkpoint 2: Generate repository insights with anti-patterns
+  const insights = generateRepositoryInsights(commits);
 
   // Group and analyze contributors
   const commitsByAuthor = groupCommitsByAuthor(commits);
@@ -161,8 +228,8 @@ export function analyzeRepository(
     new Date(Math.max(...timestamps.map((t) => t.getTime()))),
   ];
 
-  // Generate recommendations
-  const recommendations = generateRecommendations(commits, score.breakdown);
+  // Generate recommendations based on insights
+  const recommendations = generateRecommendations(commits, score.breakdown, insights);
 
   return {
     id: uuidv4(),
@@ -173,8 +240,10 @@ export function analyzeRepository(
     dateRange,
     contributors,
     totalContributors: contributors.length,
-    overallScore: score.total,
+    overallScore: insights.averageScore, // Use new average score
     categoryScores: score.breakdown,
+    commitScores,
+    insights,
     recommendations,
   };
 }

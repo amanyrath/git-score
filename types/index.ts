@@ -50,7 +50,63 @@ export interface Commit {
   files: FileChange[];
 }
 
-// Scoring types
+// Checkpoint 2: Message Quality Score (0-100)
+export interface MessageQualityScore {
+  total: number; // 0-100
+  breakdown: {
+    conventionScore: number; // 0-40: Conventional commit format
+    lengthScore: number;     // 0-30: Message length
+    imperativeScore: number; // 0-30: Imperative mood
+  };
+}
+
+// Checkpoint 2: Commit Size Score (0-100)
+export interface CommitSizeScore {
+  total: number; // 0-100
+  breakdown: {
+    linesScore: number; // 0-50: Lines changed
+    filesScore: number; // 0-50: Files changed
+  };
+  metrics: {
+    linesChanged: number;
+    filesChanged: number;
+  };
+}
+
+// Checkpoint 2: Overall Commit Score
+export interface CommitScore {
+  sha: string;
+  overall: number; // 0-100: Weighted combination
+  messageQuality: MessageQualityScore;
+  sizeScore: CommitSizeScore;
+}
+
+// Checkpoint 2: Contributor Score with category
+export type ContributorCategory = 'Excellent' | 'Good' | 'Needs Improvement';
+
+export interface ContributorScore {
+  averageScore: number;
+  consistency: number; // Standard deviation
+  category: ContributorCategory;
+  commitScores: CommitScore[];
+}
+
+// Checkpoint 2: Anti-pattern types
+export interface AntiPatterns {
+  giantCommits: string[];    // SHAs of commits >1000 lines
+  tinyCommits: string[];     // SHAs of commits <5 lines with vague message
+  mergeCommits: string[];    // SHAs of merge commits
+  wipCommits: string[];      // SHAs of WIP commits
+}
+
+// Checkpoint 2: Repository Insights
+export interface RepositoryInsights {
+  totalCommits: number;
+  averageScore: number;
+  antiPatterns: AntiPatterns;
+}
+
+// Legacy scoring types (kept for backward compatibility)
 export interface CategoryScores {
   messageQuality: number;
   commitSize: number;
@@ -83,6 +139,8 @@ export interface ContributorAnalysis {
     lastCommitDate: Date;
   };
   scores: ContributorScores;
+  // Checkpoint 2: Enhanced scoring
+  scoring: ContributorScore;
   patterns: {
     workingHours: number[];
     preferredDays: number[];
@@ -112,6 +170,9 @@ export interface AnalysisResult {
   totalContributors: number;
   overallScore: number;
   categoryScores: CategoryScores;
+  // Checkpoint 2: Enhanced analysis
+  commitScores: CommitScore[];
+  insights: RepositoryInsights;
   recommendations: Recommendation[];
 }
 

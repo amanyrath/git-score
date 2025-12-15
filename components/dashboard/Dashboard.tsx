@@ -22,8 +22,15 @@ export function Dashboard({ analysis }: DashboardProps) {
     contributors,
     overallScore,
     categoryScores,
+    insights,
     recommendations,
   } = analysis;
+
+  const { antiPatterns } = insights || { antiPatterns: { giantCommits: [], tinyCommits: [], mergeCommits: [], wipCommits: [] } };
+  const hasAntiPatterns =
+    antiPatterns.giantCommits.length > 0 ||
+    antiPatterns.tinyCommits.length > 0 ||
+    antiPatterns.wipCommits.length > 0;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -76,6 +83,54 @@ export function Dashboard({ analysis }: DashboardProps) {
           </CardContent>
         </Card>
       </section>
+
+      {/* Anti-Patterns Section */}
+      {hasAntiPatterns && (
+        <section>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Detected Anti-Patterns
+                <Badge variant="destructive">{
+                  antiPatterns.giantCommits.length +
+                  antiPatterns.tinyCommits.length +
+                  antiPatterns.wipCommits.length
+                }</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {antiPatterns.giantCommits.length > 0 && (
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="font-medium text-red-800">Giant Commits</div>
+                    <div className="text-2xl font-bold text-red-600">{antiPatterns.giantCommits.length}</div>
+                    <div className="text-sm text-red-600">Over 1000 lines changed</div>
+                  </div>
+                )}
+                {antiPatterns.wipCommits.length > 0 && (
+                  <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="font-medium text-orange-800">WIP Commits</div>
+                    <div className="text-2xl font-bold text-orange-600">{antiPatterns.wipCommits.length}</div>
+                    <div className="text-sm text-orange-600">Work in progress</div>
+                  </div>
+                )}
+                {antiPatterns.tinyCommits.length > 0 && (
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="font-medium text-yellow-800">Tiny Commits</div>
+                    <div className="text-2xl font-bold text-yellow-600">{antiPatterns.tinyCommits.length}</div>
+                    <div className="text-sm text-yellow-600">Vague messages</div>
+                  </div>
+                )}
+              </div>
+              {antiPatterns.mergeCommits.length > 0 && (
+                <div className="mt-4 text-sm text-gray-500">
+                  Note: {antiPatterns.mergeCommits.length} merge commit(s) detected (not penalized)
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* Contributors Grid */}
       <section>
