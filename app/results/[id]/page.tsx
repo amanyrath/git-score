@@ -28,6 +28,11 @@ export default function ResultsPage() {
         }));
         data.contributors = data.contributors.map((contributor: any) => ({
           ...contributor,
+          stats: {
+            ...contributor.stats,
+            firstCommitDate: new Date(contributor.stats.firstCommitDate),
+            lastCommitDate: new Date(contributor.stats.lastCommitDate),
+          },
           commits: contributor.commits.map((c: any) => ({
             ...c,
             timestamp: new Date(c.timestamp),

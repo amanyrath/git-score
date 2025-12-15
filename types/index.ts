@@ -79,6 +79,8 @@ export interface ContributorAnalysis {
     totalDeletions: number;
     avgCommitSize: number;
     filesChanged: number;
+    firstCommitDate: Date;
+    lastCommitDate: Date;
   };
   scores: ContributorScores;
   patterns: {

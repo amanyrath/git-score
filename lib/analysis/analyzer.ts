@@ -28,12 +28,16 @@ function analyzeContributor(commits: Commit[]): ContributorAnalysis {
   const avgCommitSize = mean(commits.map((c) => c.stats.total));
   const filesChanged = new Set(commits.flatMap((c) => c.files.map((f) => f.filename))).size;
 
+  // Calculate first and last commit dates
+  const timestamps = commits.map((c) => c.timestamp.getTime());
+  const firstCommitDate = new Date(Math.min(...timestamps));
+  const lastCommitDate = new Date(Math.max(...timestamps));
+
   // Analyze working patterns
   const workingHours = commits.map((c) => c.timestamp.getHours());
   const preferredDays = commits.map((c) => c.timestamp.getDay());
 
   // Calculate velocity (commits per day)
-  const timestamps = commits.map((c) => c.timestamp.getTime());
   const timeSpanDays = Math.max(1, (Math.max(...timestamps) - Math.min(...timestamps)) / (1000 * 60 * 60 * 24));
   const velocity = commits.length / timeSpanDays;
 
@@ -46,6 +50,8 @@ function analyzeContributor(commits: Commit[]): ContributorAnalysis {
       totalDeletions,
       avgCommitSize: Math.round(avgCommitSize),
       filesChanged,
+      firstCommitDate,
+      lastCommitDate,
     },
     scores,
     patterns: {
