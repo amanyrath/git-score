@@ -18,19 +18,53 @@ export class GitHubClient {
   }
 
   // Parse GitHub URL to extract owner and repo
+  // Supports multiple formats:
+  // - https://github.com/owner/repo
+  // - github.com/owner/repo
+  // - owner/repo
+  // - URLs with .git suffix
+  // - URLs with trailing slashes
   static parseURL(url: string): ParsedGitHubURL | null {
+    if (!url || typeof url !== 'string') {
+      return null;
+    }
+
+    // Trim whitespace and normalize
+    let normalized = url.trim();
+
+    // Remove trailing slashes
+    normalized = normalized.replace(/\/+$/, '');
+
+    // Remove .git suffix
+    normalized = normalized.replace(/\.git$/, '');
+
+    // Remove protocol if present
+    normalized = normalized.replace(/^https?:\/\//, '');
+
+    // Remove www. if present
+    normalized = normalized.replace(/^www\./, '');
+
     const patterns = [
-      /github\.com\/([^\/]+)\/([^\/]+)/,
+      // github.com/owner/repo (with optional path segments after)
+      /^github\.com\/([^\/]+)\/([^\/]+)(?:\/.*)?$/,
+      // owner/repo format (simple)
       /^([^\/]+)\/([^\/]+)$/,
     ];
 
     for (const pattern of patterns) {
-      const match = url.match(pattern);
+      const match = normalized.match(pattern);
       if (match) {
-        return {
-          owner: match[1],
-          repo: match[2].replace(/\.git$/, ''),
-        };
+        const owner = match[1];
+        const repo = match[2];
+
+        // Validate owner and repo names (GitHub naming rules)
+        if (owner && repo && owner.length > 0 && repo.length > 0) {
+          // Owner/repo names can contain alphanumeric, hyphens, underscores, dots
+          const validNamePattern = /^[a-zA-Z0-9._-]+$/;
+          if (validNamePattern.test(owner) && validNamePattern.test(repo)) {
+            return { owner, repo };
+          }
+        }
       }
     }
 
