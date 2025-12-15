@@ -7,6 +7,48 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+// Client-side URL validation
+// Supports formats: https://github.com/owner/repo, github.com/owner/repo, owner/repo
+// Also handles .git suffix and trailing slashes
+function validateGitHubUrl(url: string): { valid: boolean; error?: string } {
+  if (!url || typeof url !== 'string') {
+    return { valid: false, error: 'Please enter a repository URL' };
+  }
+
+  const trimmed = url.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'Please enter a repository URL' };
+  }
+
+  // Normalize the URL
+  let normalized = trimmed
+    .replace(/\/+$/, '')        // Remove trailing slashes
+    .replace(/\.git$/, '')       // Remove .git suffix
+    .replace(/^https?:\/\//, '') // Remove protocol
+    .replace(/^www\./, '');      // Remove www.
+
+  const patterns = [
+    /^github\.com\/([^\/]+)\/([^\/]+)(?:\/.*)?$/,
+    /^([^\/]+)\/([^\/]+)$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      const [, owner, repo] = match;
+      const validNamePattern = /^[a-zA-Z0-9._-]+$/;
+      if (owner && repo && validNamePattern.test(owner) && validNamePattern.test(repo)) {
+        return { valid: true };
+      }
+    }
+  }
+
+  return {
+    valid: false,
+    error: 'Invalid GitHub URL. Supported formats: https://github.com/owner/repo, github.com/owner/repo, or owner/repo'
+  };
+}
+
 export default function Home() {
   const router = useRouter();
   const [url, setUrl] = useState('');
@@ -17,6 +59,14 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Client-side validation
+    const validation = validateGitHubUrl(url);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid URL');
+      return;
+    }
+
     setLoading(true);
 
     try {
